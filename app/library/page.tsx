@@ -65,8 +65,7 @@ export default function LibraryPage() {
       <div className="mb-8 flex items-end justify-between">
         <div>
           <p className="text-[11px] uppercase tracking-[0.2em] text-ink/30">space between lines</p>
-          <h1 className="mt-1 text-2xl font-medium tracking-tight text-ink">저장소</h1>
-          <p className="mt-1.5 text-sm text-ink/50">이 기기로 함께 읽은 행간들</p>
+          <h1 className="mt-1 text-2xl font-medium tracking-tight text-ink">서재</h1>
         </div>
         <Link
           href="/"

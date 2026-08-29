@@ -57,7 +57,7 @@ export default function HomePage() {
         href="/library"
         className="mt-8 text-sm text-ink/45 underline-offset-4 transition hover:text-ink/70 hover:underline"
       >
-        이전에 함께 읽던 행간 보기 →
+        서재로 가기 →
       </Link>
     </main>
   );

@@ -50,7 +50,7 @@ export default function MemberRail({
           href="/library"
           className="text-[11px] text-ink/35 transition hover:text-ink/60"
         >
-          ← 저장소
+          ← 서재
         </Link>
         <p className="mt-2 text-xs text-ink/40">지금 함께 읽는 작품</p>
         <h2 className="mt-1 text-sm font-medium leading-snug text-ink">{bookTitle}</h2>
