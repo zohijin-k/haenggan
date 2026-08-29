@@ -55,10 +55,9 @@ function CreateBody({ quote, myColor, noteFont, onSave, onCancel }: CreateModePr
         autoFocus
         value={note}
         onChange={(e) => setNote(e.target.value)}
-        placeholder="이 문장에 남기고 싶은 말이 있다면… (비워두면 밑줄만 남아요)"
         rows={3}
         style={{ fontFamily: noteFontStack(noteFont) }}
-        className="w-full resize-none rounded-xl border border-ink/10 bg-paper/60 px-3 py-2 text-lg text-ink placeholder:font-sans placeholder:text-sm placeholder:text-ink/30 focus:outline-none focus:ring-2 focus:ring-ink/15"
+        className="w-full resize-none rounded-xl border border-ink/10 bg-paper/60 px-3 py-2 text-lg text-ink focus:outline-none focus:ring-2 focus:ring-ink/15"
       />
       <div className="flex justify-end gap-2">
         <button

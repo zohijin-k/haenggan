@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import type { Member, ReadingProgress } from "@/lib/types";
 import { NOTE_FONT_OPTIONS, noteFontStack, type NoteFont } from "@/lib/notePrefs";
 
@@ -26,6 +27,21 @@ export default function MemberRail({
   noteFont,
   onNoteFontChange,
 }: Props) {
+  // 색·폰트는 고르는 즉시가 아니라 "저장"을 눌러야 실제로 적용된다.
+  const [draftColor, setDraftColor] = useState(myColor);
+  const [draftFont, setDraftFont] = useState<NoteFont>(noteFont);
+
+  // 밖에서(다른 기기 등) 값이 바뀌면 초안도 맞춰준다.
+  useEffect(() => setDraftColor(myColor), [myColor]);
+  useEffect(() => setDraftFont(noteFont), [noteFont]);
+
+  const dirty = draftColor !== myColor || draftFont !== noteFont;
+
+  const save = () => {
+    if (draftColor !== myColor) onColorChange(draftColor);
+    if (draftFont !== noteFont) onNoteFontChange(draftFont);
+  };
+
   return (
     <aside className="flex h-full w-full flex-col gap-6 border-l border-ink/10 bg-white/30 p-5 backdrop-blur-sm sm:w-64">
       <div>
@@ -48,13 +64,13 @@ export default function MemberRail({
         <div className="flex items-center justify-between">
           <p className="text-xs text-ink/40">내 하이라이트 색</p>
           <label className="relative h-6 w-6 shrink-0 cursor-pointer overflow-hidden rounded-full border border-ink/10 shadow-note">
-            <span className="absolute inset-0" style={{ backgroundColor: myColor }} />
+            <span className="absolute inset-0" style={{ backgroundColor: draftColor }} />
             <input
               type="color"
-              value={myColor}
-              onChange={(e) => onColorChange(e.target.value)}
+              value={draftColor}
+              onChange={(e) => setDraftColor(e.target.value)}
               className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-              aria-label="하이라이트 색 바꾸기"
+              aria-label="하이라이트 색 고르기"
             />
           </label>
         </div>
@@ -66,10 +82,10 @@ export default function MemberRail({
               <button
                 key={opt.value}
                 type="button"
-                onClick={() => onNoteFontChange(opt.value)}
+                onClick={() => setDraftFont(opt.value)}
                 style={{ fontFamily: noteFontStack(opt.value) }}
                 className={`flex-1 rounded-lg border px-2 py-1.5 text-sm leading-none transition ${
-                  noteFont === opt.value
+                  draftFont === opt.value
                     ? "border-ink/0 bg-ink text-paper"
                     : "border-ink/10 text-ink/60 hover:border-ink/25"
                 }`}
@@ -78,10 +94,16 @@ export default function MemberRail({
               </button>
             ))}
           </div>
-          <p className="mt-1.5 text-[11px] leading-relaxed text-ink/30">
-            내가 남기는 메모가 이 글씨체로 보여요
-          </p>
         </div>
+
+        <button
+          type="button"
+          onClick={save}
+          disabled={!dirty}
+          className="w-full rounded-lg bg-ink px-3 py-2 text-xs font-medium text-paper transition hover:bg-ink/90 disabled:opacity-30"
+        >
+          {dirty ? "저장하고 적용" : "저장됨"}
+        </button>
       </div>
 
       <div className="flex-1">
