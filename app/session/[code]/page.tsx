@@ -227,12 +227,18 @@ export default function SessionPage() {
     [code, myMemberId]
   );
 
-  // 알약 버튼이 떠 있는 동안 다른 곳을 클릭하면(메모를 남기지 않기로 한 것) 닫아준다.
+  // 배너가 떠 있는 동안 "다른 곳"을 클릭하면(메모를 남기지 않기로 한 것) 닫아준다.
+  // 단, 배너 자신을 클릭한 건 닫으면 안 된다 — React 이벤트의 stopPropagation은
+  // document에 직접 붙은 이 리스너를 막지 못하므로, 타깃이 배너 안인지 직접 확인한다.
   useEffect(() => {
     if (!pendingSelection || noteSheetOpen || !pendingSelection.rect) return;
-    const dismiss = () => setPendingSelection(null);
+    const dismiss = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target?.closest?.("[data-selection-toolbar]")) return;
+      setPendingSelection(null);
+    };
     const timer = setTimeout(() => {
-      document.addEventListener("mousedown", dismiss, { once: true });
+      document.addEventListener("mousedown", dismiss);
     }, 50);
     return () => {
       clearTimeout(timer);
@@ -360,7 +366,7 @@ export default function SessionPage() {
         {showSelectHint && (
           <div className="pointer-events-none absolute inset-x-0 top-3 z-10 flex justify-center px-4">
             <div className="pointer-events-auto flex items-center gap-2 rounded-full border border-ink/10 bg-white/90 px-4 py-2 text-xs text-ink/60 shadow-note backdrop-blur">
-              문장을 드래그해서 선택하면 밑줄・메모를 남길 수 있어요
+              문장을 드래그하면 &ldquo;메모 남기기&rdquo; 버튼이 떠요 — 눌러서 밑줄・메모
               <button
                 type="button"
                 onClick={() => {

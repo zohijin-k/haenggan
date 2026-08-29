@@ -97,6 +97,8 @@ export default function PdfReader({
   const currentPageRef = useRef(1);
   const visibleHighlightsRef = useRef<Highlight[]>(visibleHighlights);
   const renderTokenRef = useRef(0);
+  const renderTaskRef = useRef<any>(null);
+  const textLayerInstanceRef = useRef<any>(null);
   const lastViewportRef = useRef({ width: 0, height: 0 });
 
   const onSelectionRef = useRef(onSelection);
@@ -159,6 +161,24 @@ export default function PdfReader({
     if (!pdfDoc || !canvas || !textLayerEl || !outer) return;
 
     const token = ++renderTokenRef.current;
+
+    // 진행 중이던 렌더를 먼저 취소한다. 안 그러면 같은 canvas에 두 번 render()가
+    // 겹쳐 pdf.js가 "Cannot use the same canvas during multiple render() operations"
+    // 예외를 던지고, 그 뒤 텍스트 레이어 생성이 통째로 건너뛰어져서 → 드래그해도
+    // 선택할 span이 없고 → 배너가 안 뜬다. (dev의 StrictMode 이펙트 2회 실행 등)
+    try {
+      renderTaskRef.current?.cancel?.();
+    } catch {
+      // ignore
+    }
+    renderTaskRef.current = null;
+    try {
+      textLayerInstanceRef.current?.cancel?.();
+    } catch {
+      // ignore
+    }
+    textLayerInstanceRef.current = null;
+
     const page = await pdfDoc.getPage(pageNum);
     if (token !== renderTokenRef.current) return;
 
@@ -177,8 +197,16 @@ export default function PdfReader({
     if (!ctx) return;
     const transform = outputScale !== 1 ? [outputScale, 0, 0, outputScale, 0, 0] : undefined;
 
-    await page.render({ canvasContext: ctx, viewport, transform }).promise;
+    const renderTask = page.render({ canvasContext: ctx, viewport, transform });
+    renderTaskRef.current = renderTask;
+    try {
+      await renderTask.promise;
+    } catch {
+      // 취소됐거나(다음 렌더가 시작됨) 렌더 에러 — 어느 쪽이든 여기서 조용히 끝낸다.
+      return;
+    }
     if (token !== renderTokenRef.current) return;
+    renderTaskRef.current = null;
 
     textLayerEl.innerHTML = "";
     textLayerEl.style.width = `${viewport.width}px`;
@@ -186,14 +214,21 @@ export default function PdfReader({
     textLayerEl.style.setProperty("--scale-factor", String(scale));
 
     const textContent = await page.getTextContent();
+    if (token !== renderTokenRef.current) return;
     const pdfjsLib = await loadPdfjs();
     const textLayer = new pdfjsLib.TextLayer({
       textContentSource: textContent,
       container: textLayerEl,
       viewport,
     });
-    await textLayer.render();
+    textLayerInstanceRef.current = textLayer;
+    try {
+      await textLayer.render();
+    } catch {
+      return;
+    }
     if (token !== renderTokenRef.current) return;
+    textLayerInstanceRef.current = null;
 
     textLayer.textDivs.forEach((div: HTMLElement, i: number) => {
       div.dataset.itemIndex = String(i);
@@ -299,10 +334,7 @@ export default function PdfReader({
       const text = selection.toString();
       if (!text.trim()) return;
 
-      const layer = textLayerRef.current;
       const range = selection.getRangeAt(0);
-      if (!layer || !layer.contains(range.commonAncestorContainer)) return;
-
       const divs = textDivsRef.current;
       let startItem = -1;
       let endItem = -1;
@@ -312,6 +344,7 @@ export default function PdfReader({
           endItem = i;
         }
       }
+      // 이 페이지의 텍스트 레이어 밖(사이드바 등)에서 일어난 선택이면 무시.
       if (startItem === -1) return;
 
       // offset은 선택 경계가 그 span의 텍스트 노드 안에 있을 때만 의미가 있다
