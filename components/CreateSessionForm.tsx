@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { supabase, BOOKS_BUCKET } from "@/lib/supabase";
+import { supabase, BOOKS_BUCKET, isSupabaseConfigured } from "@/lib/supabase";
 import { extractEpubMeta } from "@/lib/epubMeta";
 import { extractPdfPreview } from "@/lib/pdfjs";
 import { generateSessionCode } from "@/lib/sessionCode";
@@ -110,6 +110,16 @@ export default function CreateSessionForm() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!file || !nickname.trim()) return;
+
+    if (!isSupabaseConfigured) {
+      setError(
+        "Supabase 환경변수가 비어 있어요. Vercel Project Settings → Environment Variables에 " +
+          "NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY 를 넣고 다시 배포해주세요."
+      );
+      setStep("error");
+      return;
+    }
+
     setStep("uploading");
     setError(null);
 
@@ -176,8 +186,14 @@ export default function CreateSessionForm() {
       router.push(`/session/${code}`);
     } catch (err) {
       console.error(err);
+      const detail =
+        err && typeof err === "object" && "message" in err
+          ? String((err as { message: unknown }).message)
+          : "";
       setError(
-        "세션을 만들지 못했어요. .env.local의 Supabase 설정과 'books' 스토리지 버킷을 확인해주세요."
+        `세션을 만들지 못했어요. Supabase의 'books' 스토리지 버킷(public)과 schema.sql 실행 여부를 확인해주세요.${
+          detail ? `\n(${detail})` : ""
+        }`
       );
       setStep("error");
     }
@@ -308,7 +324,7 @@ export default function CreateSessionForm() {
         </div>
       )}
 
-      {error && <p className="text-sm text-danger">{error}</p>}
+      {error && <p className="whitespace-pre-line text-sm text-danger">{error}</p>}
 
       <button
         type="submit"

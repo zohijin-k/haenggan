@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 import { MEMBER_PALETTE } from "@/lib/palette";
 import { newDeviceKey, setLocalIdentity } from "@/lib/identity";
 
@@ -19,6 +19,15 @@ export default function JoinSessionForm() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!code.trim() || !nickname.trim()) return;
+
+    if (!isSupabaseConfigured) {
+      setError(
+        "Supabase 환경변수가 비어 있어요. Vercel Project Settings → Environment Variables에 " +
+          "NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY 를 넣고 다시 배포해주세요."
+      );
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
@@ -110,7 +119,7 @@ export default function JoinSessionForm() {
         </div>
       </div>
 
-      {error && <p className="text-sm text-danger">{error}</p>}
+      {error && <p className="whitespace-pre-line text-sm text-danger">{error}</p>}
 
       <button
         type="submit"
