@@ -1,20 +1,39 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 import { MEMBER_PALETTE } from "@/lib/palette";
-import { newDeviceKey, setLocalIdentity } from "@/lib/identity";
+import { getLocalIdentity, newDeviceKey, setLocalIdentity } from "@/lib/identity";
 
 export default function JoinSessionForm() {
   const router = useRouter();
   const [code, setCode] = useState("");
   const [nickname, setNickname] = useState("");
-  const [color, setColor] = useState<string>(
-    () => MEMBER_PALETTE[Math.floor(Math.random() * MEMBER_PALETTE.length)].hex
-  );
+  // 서버/클라이언트 렌더가 어긋나지 않게 초기값은 고정하고, 마운트 후 랜덤으로 바꾼다.
+  const [color, setColor] = useState<string>(MEMBER_PALETTE[0].hex);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setColor(MEMBER_PALETTE[Math.floor(Math.random() * MEMBER_PALETTE.length)].hex);
+  }, []);
+
+  // 이 브라우저가 이미 그 행간에 다른 신원으로 들어가 있으면, 그냥 참여시키면
+  // 그 신원이 덮어써진다(= 원래 사람의 흔적이 이 브라우저에서 안 보이게 됨).
+  // 그래서 먼저 알려주고 "이어 읽기 / 다른 사람으로" 를 고르게 한다.
+  const [existingNick, setExistingNick] = useState<string | null>(null);
+  const [asNewPerson, setAsNewPerson] = useState(false);
+
+  useEffect(() => {
+    const c = code.trim().toUpperCase();
+    const id = c.length >= 4 ? getLocalIdentity(c) : null;
+    setExistingNick(id?.nickname ?? null);
+    setAsNewPerson(false);
+  }, [code]);
+
+  const normalizedCode = code.trim().toUpperCase();
+  const showConflictGate = existingNick && !asNewPerson;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -32,7 +51,6 @@ export default function JoinSessionForm() {
     setError(null);
 
     try {
-      const normalizedCode = code.trim().toUpperCase();
       const { data: session, error: sessionError } = await supabase
         .from("sessions")
         .select("id")
@@ -90,44 +108,77 @@ export default function JoinSessionForm() {
           required
         />
       </div>
-      <div>
-        <label className="block text-sm text-ink/60 mb-1.5">내 닉네임</label>
-        <input
-          value={nickname}
-          onChange={(e) => setNickname(e.target.value)}
-          placeholder="닉네임을 입력해주세요"
-          className="w-full rounded-xl border border-ink/10 bg-white/70 px-4 py-2.5 text-ink placeholder:text-ink/30 focus:outline-none focus:ring-2 focus:ring-clay/25"
-          required
-        />
-      </div>
-      <div>
-        <label className="block text-sm text-ink/60 mb-1.5">내 하이라이트 색</label>
-        <div className="flex items-center gap-3">
-          <label className="relative h-10 w-10 shrink-0 cursor-pointer overflow-hidden rounded-full border border-ink/10 shadow-note">
-            <span className="absolute inset-0" style={{ backgroundColor: color }} />
-            <input
-              type="color"
-              value={color}
-              onChange={(e) => setColor(e.target.value)}
-              className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-              aria-label="하이라이트 색 선택"
-            />
-          </label>
-          <p className="text-xs leading-relaxed text-ink/40">
-            앞으로 이 행간 안에서는 이 색이 계속 내 밑줄·손글씨 색이 돼요
+
+      {showConflictGate ? (
+        <div className="space-y-3 rounded-xl border border-clay/25 bg-clay/5 p-4">
+          <p className="text-sm leading-relaxed text-ink/70">
+            이 브라우저는 이미 <b className="text-ink">{existingNick}</b>으로 이 행간에
+            들어가 있어요.
           </p>
+          <button
+            type="button"
+            onClick={() => router.push(`/session/${normalizedCode}`)}
+            className="w-full rounded-xl bg-clay px-4 py-3 text-sm font-medium text-paper transition hover:bg-clay/90"
+          >
+            {existingNick}으로 이어 읽기
+          </button>
+          <button
+            type="button"
+            onClick={() => setAsNewPerson(true)}
+            className="w-full text-center text-xs text-ink/40 underline-offset-2 hover:text-ink/60 hover:underline"
+          >
+            이 브라우저에서 다른 사람으로 참여하기
+          </button>
         </div>
-      </div>
+      ) : (
+        <>
+          {existingNick && asNewPerson && (
+            <p className="rounded-lg bg-clay/5 px-3 py-2 text-[11px] leading-relaxed text-clay/80">
+              계속하면 이 브라우저에서 &lsquo;{existingNick}&rsquo;의 흔적은 안 보이게 돼요.
+              (서버엔 그대로 남아 있어요)
+            </p>
+          )}
 
-      {error && <p className="whitespace-pre-line text-sm text-danger">{error}</p>}
+          <div>
+            <label className="block text-sm text-ink/60 mb-1.5">내 닉네임</label>
+            <input
+              value={nickname}
+              onChange={(e) => setNickname(e.target.value)}
+              placeholder="닉네임을 입력해주세요"
+              className="w-full rounded-xl border border-ink/10 bg-white/70 px-4 py-2.5 text-ink placeholder:text-ink/30 focus:outline-none focus:ring-2 focus:ring-clay/25"
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-sm text-ink/60 mb-1.5">내 하이라이트 색</label>
+            <div className="flex items-center gap-3">
+              <label className="relative h-10 w-10 shrink-0 cursor-pointer overflow-hidden rounded-full border border-ink/10 shadow-note">
+                <span className="absolute inset-0" style={{ backgroundColor: color }} />
+                <input
+                  type="color"
+                  value={color}
+                  onChange={(e) => setColor(e.target.value)}
+                  className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                  aria-label="하이라이트 색 선택"
+                />
+              </label>
+              <p className="text-xs leading-relaxed text-ink/40">
+                앞으로 이 행간 안에서는 이 색이 계속 내 밑줄·손글씨 색이 돼요
+              </p>
+            </div>
+          </div>
 
-      <button
-        type="submit"
-        disabled={!code.trim() || !nickname.trim() || loading}
-        className="w-full rounded-xl border border-clay/30 bg-white/60 px-4 py-3 text-sm font-medium text-clay transition hover:bg-clay/5 disabled:cursor-not-allowed disabled:opacity-40"
-      >
-        {loading ? "들어가는 중…" : "코드로 참여하기"}
-      </button>
+          {error && <p className="whitespace-pre-line text-sm text-danger">{error}</p>}
+
+          <button
+            type="submit"
+            disabled={!code.trim() || !nickname.trim() || loading}
+            className="w-full rounded-xl border border-clay/30 bg-white/60 px-4 py-3 text-sm font-medium text-clay transition hover:bg-clay/5 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {loading ? "들어가는 중…" : "코드로 참여하기"}
+          </button>
+        </>
+      )}
     </form>
   );
 }

@@ -43,6 +43,17 @@ export default function MemberRail({
     if (draftFont !== noteFont) onNoteFontChange(draftFont);
   };
 
+  // 코드만 주면 상대가 홈에서 코드를 입력하다가 "같은 브라우저 다른 사람" 사고가
+  // 나기 쉬워서, 기본은 각자 자기 기기에서 여는 초대 "링크"를 복사하게 한다.
+  const [copied, setCopied] = useState(false);
+  const copyInvite = () => {
+    const url =
+      typeof window !== "undefined" ? `${window.location.origin}/session/${code}` : code;
+    navigator.clipboard?.writeText(url);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1600);
+  };
+
   return (
     <aside className="flex h-full w-full flex-col gap-6 border-l border-ink/10 bg-white/30 p-5 backdrop-blur-sm sm:w-64">
       <div>
@@ -57,13 +68,16 @@ export default function MemberRail({
       </div>
 
       <div>
-        <p className="mb-2 text-xs text-ink/40">초대 코드</p>
+        <p className="mb-2 text-xs text-ink/40">초대</p>
         <button
-          onClick={() => navigator.clipboard?.writeText(code)}
-          className="w-full rounded-lg border border-dashed border-ink/20 px-3 py-2 text-left text-sm font-semibold tracking-[0.15em] text-ink/70 transition hover:border-ink/30"
-          title="복사하기"
+          onClick={copyInvite}
+          className="w-full rounded-lg border border-dashed border-ink/20 px-3 py-2 text-left transition hover:border-ink/30"
+          title="초대 링크 복사"
         >
-          {code}
+          <span className="block text-sm font-semibold tracking-[0.15em] text-ink/70">{code}</span>
+          <span className="mt-0.5 block text-[11px] text-ink/35">
+            {copied ? "초대 링크 복사됨 ✓" : "눌러서 초대 링크 복사 (각자 자기 기기에서 열기)"}
+          </span>
         </button>
       </div>
 
