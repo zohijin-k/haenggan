@@ -8,9 +8,10 @@ create extension if not exists "pgcrypto";
 create table if not exists sessions (
   id uuid primary key default gen_random_uuid(),
   code text unique not null,              -- 초대 링크에 쓰는 짧은 코드 (예: 6자리)
+  name text,                              -- 이 "행간"(같이 읽기 방)의 이름, 사용자가 직접 지음
   book_title text not null,
   book_author text,
-  epub_path text not null,                -- Supabase Storage 상의 epub 파일 경로
+  epub_path text not null,                -- Supabase Storage 상의 epub 파일 경로 (PDF로 올린 경우 변환된 epub)
   cover_url text,
   created_by text not null,               -- 만든 사람 닉네임
   created_at timestamptz not null default now()
@@ -63,5 +64,9 @@ create policy "anon full access - members" on session_members for all using (tru
 create policy "anon full access - highlights" on highlights for all using (true) with check (true);
 create policy "anon full access - progress" on reading_progress for all using (true) with check (true);
 
--- Storage: epub 파일을 담을 버킷 (Supabase 대시보드에서 'books' 버킷을 만들고
+-- Storage: epub/cover 파일을 담을 버킷 (Supabase 대시보드에서 'books' 버킷을 만들고
 -- public 여부는 취향에 따라 설정하세요. private로 두면 signed URL로 접근)
+-- storage.objects 자체에는 기본적으로 anon 정책이 없어서, 버킷을 만든 뒤 아래 정책도 추가해야
+-- 클라이언트(anon key)에서 업로드/다운로드가 됩니다.
+create policy "anon full access - books bucket" on storage.objects
+  for all using (bucket_id = 'books') with check (bucket_id = 'books');

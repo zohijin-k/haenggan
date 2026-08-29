@@ -1,6 +1,7 @@
 export type Session = {
   id: string;
   code: string;
+  name: string | null;
   book_title: string;
   book_author: string | null;
   epub_path: string;

@@ -6,12 +6,14 @@ export default function HomePage() {
   return (
     <main className="relative mx-auto flex min-h-screen max-w-4xl flex-col items-center justify-center px-6 py-16">
       <div className="mb-12 text-center">
-        <p className="mb-3 text-sm text-ink/45">문장과 문장 사이, 우리만 아는 이야기</p>
+        <p className="mb-3 text-sm text-ink/45">space between lines</p>
         <h1 className="text-4xl font-medium tracking-tight text-ink sm:text-5xl">
           행간
         </h1>
         <p className="mt-1.5 text-[11px] uppercase tracking-[0.2em] text-ink/30">
-          space between lines
+          글에 직접적으로 나타나 있지 아니하나
+          <br />
+           그 글을 통하여 나타내려고 하는 숨은 뜻을 비유적으로 이르는 말
         </p>
         {/* 참여자마다 고정된 색을 갖는다는 이 서비스의 핵심 컨셉을,
             첫 화면에서부터 작은 점들로 살짝 예고한다 */}
@@ -25,9 +27,7 @@ export default function HomePage() {
           ))}
         </div>
         <p className="mt-4 text-sm leading-relaxed text-ink/55">
-          친구들과 전자책 한 권을 같이 읽어요.
-          <br />
-          내가 읽은 만큼만, 서로의 밑줄과 메모가 조금씩 드러납니다.
+          read between the lines
         </p>
       </div>
 
@@ -37,9 +37,6 @@ export default function HomePage() {
             <span className="h-1.5 w-1.5 rounded-full bg-moss" />
             새로 시작하기
           </h2>
-          <p className="mb-5 text-xs text-ink/50">
-            EPUB을 올리고, 친구들에게 코드를 공유하세요
-          </p>
           <CreateSessionForm />
         </section>
 

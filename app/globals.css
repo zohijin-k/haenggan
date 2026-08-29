@@ -27,3 +27,32 @@ body {
 ::selection {
   background: rgba(24, 24, 27, 0.12);
 }
+
+/* pdf.js TextLayer가 캔버스 위에 겹치는, 실제로는 투명한 텍스트 레이어.
+   글자 위치만 캔버스와 정확히 맞추고 눈에는 안 보이게 해서, "선택은 되지만
+   보이는 건 캔버스 그림"인 표준 PDF 뷰어 방식을 그대로 씀. */
+.pdf-text-layer {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  line-height: 1;
+  opacity: 1;
+  transform-origin: 0 0;
+}
+.pdf-text-layer span {
+  color: transparent;
+  position: absolute;
+  white-space: pre;
+  cursor: text;
+  transform-origin: 0% 0%;
+}
+.pdf-text-layer ::selection {
+  background: rgba(92, 107, 79, 0.25);
+}
+.pdf-highlight-span {
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 1px;
+  cursor: pointer;
+  pointer-events: auto;
+}

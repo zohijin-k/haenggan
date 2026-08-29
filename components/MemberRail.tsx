@@ -1,6 +1,7 @@
 "use client";
 
 import type { Member, ReadingProgress } from "@/lib/types";
+import { FONT_OPTIONS, type ReaderFont } from "@/lib/readerPrefs";
 
 type Props = {
   bookTitle: string;
@@ -8,6 +9,11 @@ type Props = {
   members: Member[];
   progressByMember: Record<string, ReadingProgress | undefined>;
   myMemberId: string;
+  myColor: string;
+  onColorChange: (color: string) => void;
+  font: ReaderFont;
+  onFontChange: (font: ReaderFont) => void;
+  fontDisabled?: boolean;
 };
 
 export default function MemberRail({
@@ -16,6 +22,11 @@ export default function MemberRail({
   members,
   progressByMember,
   myMemberId,
+  myColor,
+  onColorChange,
+  font,
+  onFontChange,
+  fontDisabled,
 }: Props) {
   return (
     <aside className="flex h-full w-full flex-col gap-6 border-l border-ink/10 bg-white/30 p-5 backdrop-blur-sm sm:w-64">
@@ -35,6 +46,48 @@ export default function MemberRail({
         </button>
       </div>
 
+      <div className="space-y-3.5 rounded-xl border border-ink/10 bg-white/40 p-3.5">
+        <div className="flex items-center justify-between">
+          <p className="text-xs text-ink/40">내 하이라이트 색</p>
+          <label className="relative h-6 w-6 shrink-0 cursor-pointer overflow-hidden rounded-full border border-ink/10 shadow-note">
+            <span className="absolute inset-0" style={{ backgroundColor: myColor }} />
+            <input
+              type="color"
+              value={myColor}
+              onChange={(e) => onColorChange(e.target.value)}
+              className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+              aria-label="하이라이트 색 바꾸기"
+            />
+          </label>
+        </div>
+
+        <div>
+          <p className="mb-1.5 text-xs text-ink/40">읽기 폰트</p>
+          <div className="flex gap-1.5">
+            {FONT_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                disabled={fontDisabled}
+                onClick={() => onFontChange(opt.value)}
+                className={`flex-1 rounded-lg border px-2 py-1.5 text-xs transition disabled:cursor-not-allowed disabled:opacity-30 ${
+                  font === opt.value
+                    ? "border-ink/0 bg-ink text-paper"
+                    : "border-ink/10 text-ink/60 hover:border-ink/25"
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+          {fontDisabled && (
+            <p className="mt-1.5 text-[11px] leading-relaxed text-ink/30">
+              PDF는 원본 폰트 그대로 보여줘서 바꿀 수 없어요
+            </p>
+          )}
+        </div>
+      </div>
+
       <div className="flex-1">
         <p className="mb-3 text-xs text-ink/40">같이 읽는 사람들</p>
         <ul className="space-y-3">
@@ -47,7 +100,7 @@ export default function MemberRail({
                   <span className="flex items-center gap-1.5 text-ink/80">
                     <span
                       className="h-2 w-2 rounded-full"
-                      style={{ backgroundColor: m.color }}
+                      style={{ backgroundColor: m.id === myMemberId ? myColor : m.color }}
                     />
                     {m.nickname}
                     {m.id === myMemberId && (
@@ -59,7 +112,7 @@ export default function MemberRail({
                 <div className="h-1 w-full overflow-hidden rounded-full bg-ink/5">
                   <div
                     className="h-full rounded-full transition-all"
-                    style={{ width: `${pct}%`, backgroundColor: m.color }}
+                    style={{ width: `${pct}%`, backgroundColor: m.id === myMemberId ? myColor : m.color }}
                   />
                 </div>
               </li>

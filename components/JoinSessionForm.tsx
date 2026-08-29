@@ -3,13 +3,16 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { pickNextColor } from "@/lib/palette";
+import { MEMBER_PALETTE } from "@/lib/palette";
 import { newDeviceKey, setLocalIdentity } from "@/lib/identity";
 
 export default function JoinSessionForm() {
   const router = useRouter();
   const [code, setCode] = useState("");
   const [nickname, setNickname] = useState("");
+  const [color, setColor] = useState<string>(
+    () => MEMBER_PALETTE[Math.floor(Math.random() * MEMBER_PALETTE.length)].hex
+  );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -32,12 +35,6 @@ export default function JoinSessionForm() {
         return;
       }
 
-      const { data: existingMembers } = await supabase
-        .from("session_members")
-        .select("color")
-        .eq("session_id", session.id);
-
-      const color = pickNextColor((existingMembers ?? []).map((m) => m.color));
       const deviceKey = newDeviceKey();
 
       const { data: member, error: memberError } = await supabase
@@ -93,6 +90,24 @@ export default function JoinSessionForm() {
           className="w-full rounded-xl border border-ink/10 bg-white/70 px-4 py-2.5 text-ink placeholder:text-ink/30 focus:outline-none focus:ring-2 focus:ring-clay/25"
           required
         />
+      </div>
+      <div>
+        <label className="block text-sm text-ink/60 mb-1.5">내 하이라이트 색</label>
+        <div className="flex items-center gap-3">
+          <label className="relative h-10 w-10 shrink-0 cursor-pointer overflow-hidden rounded-full border border-ink/10 shadow-note">
+            <span className="absolute inset-0" style={{ backgroundColor: color }} />
+            <input
+              type="color"
+              value={color}
+              onChange={(e) => setColor(e.target.value)}
+              className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+              aria-label="하이라이트 색 선택"
+            />
+          </label>
+          <p className="text-xs leading-relaxed text-ink/40">
+            앞으로 이 행간 안에서는 이 색이 계속 내 밑줄·손글씨 색이 돼요
+          </p>
+        </div>
       </div>
 
       {error && <p className="text-sm text-danger">{error}</p>}

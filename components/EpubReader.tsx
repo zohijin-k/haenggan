@@ -2,11 +2,15 @@
 
 import { useEffect, useRef } from "react";
 import type { Highlight } from "@/lib/types";
+import { fontStack, type ReaderFont } from "@/lib/readerPrefs";
+
+type SelectionRect = { x: number; y: number; width: number; height: number };
 
 type SelectionInfo = {
   cfiRange: string;
   text: string;
   chapterHref: string | null;
+  rect: SelectionRect | null;
 };
 
 type ReaderApi = {
@@ -18,11 +22,18 @@ type Props = {
   epubUrl: string;
   visibleHighlights: Highlight[];
   startCfi?: string | null;
+  font?: ReaderFont;
   onReady?: (api: ReaderApi) => void;
   onSelection?: (info: SelectionInfo) => void;
   onLocationChange?: (cfi: string, percentage: number, chapterHref: string) => void;
   onHighlightClick?: (highlightId: string) => void;
 };
+
+// 책 자체 CSS가 폰트를 강하게 지정하는 경우가 많아 !important로 덮어씀.
+// (Kindle 등 리더가 "출판사 폰트"를 무시하고 사용자 폰트로 바꿔치는 것과 같은 방식)
+function fontCss(font: ReaderFont) {
+  return `body, body * { font-family: ${fontStack(font)} !important; }`;
+}
 
 // epub.js가 mark 태그에 붙이는 밑줄/형광펜 스타일. iframe 내부 문서는
 // 우리 Tailwind 스타일시트가 닿지 않기 때문에 순수 CSS로 직접 주입한다.
@@ -40,6 +51,7 @@ export default function EpubReader({
   epubUrl,
   visibleHighlights,
   startCfi,
+  font = "gothic",
   onReady,
   onSelection,
   onLocationChange,
@@ -52,10 +64,12 @@ export default function EpubReader({
   const onSelectionRef = useRef(onSelection);
   const onHighlightClickRef = useRef(onHighlightClick);
   const onLocationChangeRef = useRef(onLocationChange);
+  const fontRef = useRef<ReaderFont>(font);
 
   onSelectionRef.current = onSelection;
   onHighlightClickRef.current = onHighlightClick;
   onLocationChangeRef.current = onLocationChange;
+  fontRef.current = font;
 
   useEffect(() => {
     let cancelled = false;
@@ -78,6 +92,7 @@ export default function EpubReader({
       rendition.hooks.content.register((contents: any) => {
         try {
           contents.addStylesheetCss(READER_CSS, "haenggan-reader-base");
+          contents.addStylesheetCss(fontCss(fontRef.current), "haenggan-reader-font");
         } catch {
           // 구버전 epub.js 호환: 실패해도 기본 렌더링엔 지장 없음
         }
@@ -96,7 +111,24 @@ export default function EpubReader({
         const text = selection ? selection.toString() : "";
         if (!text.trim()) return;
         const chapterHref = rendition.location?.start?.href ?? null;
-        onSelectionRef.current?.({ cfiRange, text, chapterHref });
+
+        let rect: SelectionRect | null = null;
+        try {
+          const range = selection.getRangeAt(0);
+          const r = range.getBoundingClientRect();
+          const frame = contents.document?.defaultView?.frameElement as HTMLElement | undefined;
+          const frameRect = frame?.getBoundingClientRect();
+          rect = {
+            x: (frameRect?.left ?? 0) + r.left + r.width / 2,
+            y: (frameRect?.top ?? 0) + r.top,
+            width: r.width,
+            height: r.height,
+          };
+        } catch {
+          rect = null;
+        }
+
+        onSelectionRef.current?.({ cfiRange, text, chapterHref, rect });
       });
 
       rendition.on("relocated", (location: any) => {
@@ -140,6 +172,26 @@ export default function EpubReader({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [epubUrl]);
+
+  // 폰트를 바꾸면 이미 렌더된 페이지에도 즉시 반영한다(새로 넘기는 페이지는
+  // 위 hooks.content.register가 자연히 새 폰트로 그려줌).
+  useEffect(() => {
+    const rendition = renditionRef.current;
+    if (!rendition) return;
+    try {
+      const contentsList =
+        typeof rendition.getContents === "function" ? rendition.getContents() : [];
+      contentsList.forEach((c: any) => {
+        try {
+          c.addStylesheetCss(fontCss(font), "haenggan-reader-font");
+        } catch {
+          // ignore
+        }
+      });
+    } catch {
+      // ignore
+    }
+  }, [font]);
 
   // 새로 "발견"된(잠금 해제된) 하이라이트를 뷰에 얹는다.
   useEffect(() => {

@@ -4,16 +4,22 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import { supabase, BOOKS_BUCKET } from "@/lib/supabase";
 import { getLocalIdentity, newDeviceKey, setLocalIdentity } from "@/lib/identity";
-import { pickNextColor } from "@/lib/palette";
+import { MEMBER_PALETTE } from "@/lib/palette";
+import { getReaderFont, setReaderFont, type ReaderFont } from "@/lib/readerPrefs";
 import type { Highlight, Member, ReadingProgress, Session } from "@/lib/types";
 import EpubReader from "@/components/EpubReader";
+import PdfReader from "@/components/PdfReader";
 import NoteSheet from "@/components/NoteSheet";
 import MemberRail from "@/components/MemberRail";
+import SelectionToolbar from "@/components/SelectionToolbar";
+
+const SELECT_HINT_KEY = "haenggan:hint:select-dismissed";
 
 type PendingSelection = {
   cfiRange: string;
   text: string;
   chapterHref: string | null;
+  rect: { x: number; y: number; width: number; height: number } | null;
 };
 
 export default function SessionPage() {
@@ -30,13 +36,27 @@ export default function SessionPage() {
   const [needsNickname, setNeedsNickname] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showRail, setShowRail] = useState(true);
 
   const [pendingSelection, setPendingSelection] = useState<PendingSelection | null>(null);
+  const [noteSheetOpen, setNoteSheetOpen] = useState(false);
   const [viewingHighlightId, setViewingHighlightId] = useState<string | null>(null);
+  const [font, setFont] = useState<ReaderFont>("gothic");
+  const [showSelectHint, setShowSelectHint] = useState(false);
 
   const compareCfiRef = useRef<((a: string, b: string) => number) | null>(null);
   const myFurthestCfiRef = useRef<string | null>(null);
   const progressSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // 0) 이 기기의 개인 취향(읽기 폰트) + 선택 힌트 노출 여부 로드
+  useEffect(() => {
+    setFont(getReaderFont());
+    try {
+      setShowSelectHint(!window.localStorage.getItem(SELECT_HINT_KEY));
+    } catch {
+      setShowSelectHint(true);
+    }
+  }, []);
 
   // 1) 세션 + 로컬 신원 로드
   useEffect(() => {
@@ -129,6 +149,14 @@ export default function SessionPage() {
       )
       .on(
         "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "session_members", filter: `session_id=eq.${currentSession.id}` },
+        (payload) => {
+          const updated = payload.new as Member;
+          setMembers((prev) => prev.map((m) => (m.id === updated.id ? updated : m)));
+        }
+      )
+      .on(
+        "postgres_changes",
         { event: "*", schema: "public", table: "reading_progress", filter: `session_id=eq.${currentSession.id}` },
         (payload) => {
           const row = payload.new as ReadingProgress;
@@ -169,7 +197,48 @@ export default function SessionPage() {
 
   const handleSelection = useCallback((info: PendingSelection) => {
     setPendingSelection(info);
+    // rect 계산에 실패했을 때(드물게 있을 수 있음)는 알약 버튼을 띄울 위치가
+    // 없으니 예전처럼 메모 시트를 바로 연다.
+    setNoteSheetOpen(!info.rect);
+    if (showSelectHint) {
+      setShowSelectHint(false);
+      try {
+        window.localStorage.setItem(SELECT_HINT_KEY, "1");
+      } catch {
+        // ignore
+      }
+    }
+  }, [showSelectHint]);
+
+  const handleFontChange = useCallback((next: ReaderFont) => {
+    setFont(next);
+    setReaderFont(next);
   }, []);
+
+  const handleColorChange = useCallback(
+    async (nextColor: string) => {
+      if (!myMemberId) return;
+      setMyColor(nextColor);
+      setMembers((prev) => prev.map((m) => (m.id === myMemberId ? { ...m, color: nextColor } : m)));
+      const identity = getLocalIdentity(code);
+      if (identity) setLocalIdentity(code, { ...identity, color: nextColor });
+      await supabase.from("session_members").update({ color: nextColor }).eq("id", myMemberId);
+    },
+    [code, myMemberId]
+  );
+
+  // 알약 버튼이 떠 있는 동안 다른 곳을 클릭하면(메모를 남기지 않기로 한 것) 닫아준다.
+  useEffect(() => {
+    if (!pendingSelection || noteSheetOpen || !pendingSelection.rect) return;
+    const dismiss = () => setPendingSelection(null);
+    const timer = setTimeout(() => {
+      document.addEventListener("mousedown", dismiss, { once: true });
+    }, 50);
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener("mousedown", dismiss);
+    };
+  }, [pendingSelection, noteSheetOpen]);
 
   const handleLocationChange = useCallback(
     (cfi: string, percentage: number, chapterHref: string) => {
@@ -234,12 +303,11 @@ export default function SessionPage() {
       setHighlights((prev) => [...prev, data as Highlight]);
     }
     setPendingSelection(null);
+    setNoteSheetOpen(false);
   }
 
-  async function handleNicknameJoin(nickname: string) {
+  async function handleNicknameJoin(nickname: string, color: string) {
     if (!session) return;
-    const usedColors = members.map((m) => m.color);
-    const color = pickNextColor(usedColors);
     const deviceKey = newDeviceKey();
     const { data: member, error } = await supabase
       .from("session_members")
@@ -261,6 +329,7 @@ export default function SessionPage() {
 
   const viewingHighlight = highlights.find((h) => h.id === viewingHighlightId) ?? null;
   const viewingMember = viewingHighlight ? membersById[viewingHighlight.member_id] : null;
+  const isPdfBook = (session?.epub_path ?? "").toLowerCase().endsWith(".pdf");
 
   if (loading) {
     return <CenteredMessage text="펼치는 중…" />;
@@ -278,34 +347,100 @@ export default function SessionPage() {
   return (
     <div className="flex h-screen w-full flex-col-reverse sm:flex-row">
       <div className="relative flex-1 bg-paper">
-        <EpubReader
-          epubUrl={epubUrl}
-          visibleHighlights={visibleHighlights}
-          startCfi={myFurthestCfiRef.current}
-          onReady={({ compareCfi }) => {
-            compareCfiRef.current = compareCfi;
-          }}
-          onSelection={handleSelection}
-          onLocationChange={handleLocationChange}
-          onHighlightClick={(id) => setViewingHighlightId(id)}
-        />
+        <button
+          type="button"
+          onClick={() => setShowRail((v) => !v)}
+          className="absolute right-3 top-3 z-20 flex h-8 w-8 items-center justify-center rounded-full border border-ink/10 bg-white/80 text-ink/50 shadow-note backdrop-blur transition hover:text-ink"
+          aria-label={showRail ? "사이드바 숨기기" : "사이드바 보이기"}
+          title={showRail ? "사이드바 숨기기" : "사이드바 보이기"}
+        >
+          {showRail ? "›" : "‹"}
+        </button>
+
+        {showSelectHint && (
+          <div className="pointer-events-none absolute inset-x-0 top-3 z-10 flex justify-center px-4">
+            <div className="pointer-events-auto flex items-center gap-2 rounded-full border border-ink/10 bg-white/90 px-4 py-2 text-xs text-ink/60 shadow-note backdrop-blur">
+              문장을 드래그해서 선택하면 밑줄・메모를 남길 수 있어요
+              <button
+                type="button"
+                onClick={() => {
+                  setShowSelectHint(false);
+                  try {
+                    window.localStorage.setItem(SELECT_HINT_KEY, "1");
+                  } catch {
+                    // ignore
+                  }
+                }}
+                className="text-ink/30 transition hover:text-ink/60"
+                aria-label="닫기"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        )}
+
+        {isPdfBook ? (
+          <PdfReader
+            pdfUrl={epubUrl}
+            visibleHighlights={visibleHighlights}
+            startCfi={myFurthestCfiRef.current}
+            onReady={({ compareCfi }) => {
+              compareCfiRef.current = compareCfi;
+            }}
+            onSelection={handleSelection}
+            onLocationChange={handleLocationChange}
+            onHighlightClick={(id) => setViewingHighlightId(id)}
+          />
+        ) : (
+          <EpubReader
+            epubUrl={epubUrl}
+            visibleHighlights={visibleHighlights}
+            startCfi={myFurthestCfiRef.current}
+            font={font}
+            onReady={({ compareCfi }) => {
+              compareCfiRef.current = compareCfi;
+            }}
+            onSelection={handleSelection}
+            onLocationChange={handleLocationChange}
+            onHighlightClick={(id) => setViewingHighlightId(id)}
+          />
+        )}
       </div>
 
-      <MemberRail
-        bookTitle={session.book_title}
-        code={session.code}
-        members={members}
-        progressByMember={progress}
-        myMemberId={myMemberId}
-      />
+      {showRail && (
+        <MemberRail
+          bookTitle={session.book_title}
+          code={session.code}
+          members={members}
+          progressByMember={progress}
+          myMemberId={myMemberId}
+          myColor={myColor}
+          onColorChange={handleColorChange}
+          font={font}
+          onFontChange={handleFontChange}
+          fontDisabled={isPdfBook}
+        />
+      )}
 
-      {pendingSelection && (
+      {pendingSelection && !noteSheetOpen && pendingSelection.rect && (
+        <SelectionToolbar
+          rect={pendingSelection.rect}
+          color={myColor}
+          onClick={() => setNoteSheetOpen(true)}
+        />
+      )}
+
+      {pendingSelection && noteSheetOpen && (
         <NoteSheet
           mode="create"
           quote={pendingSelection.text}
           myColor={myColor}
           onSave={saveHighlight}
-          onCancel={() => setPendingSelection(null)}
+          onCancel={() => {
+            setPendingSelection(null);
+            setNoteSheetOpen(false);
+          }}
         />
       )}
 
@@ -347,9 +482,17 @@ function NicknamePrompt({
   onSubmit,
 }: {
   bookTitle: string;
-  onSubmit: (nickname: string) => void;
+  onSubmit: (nickname: string, color: string) => void;
 }) {
   const [nickname, setNickname] = useState("");
+  const [color, setColor] = useState<string>(
+    () => MEMBER_PALETTE[Math.floor(Math.random() * MEMBER_PALETTE.length)].hex
+  );
+
+  function submit() {
+    if (nickname.trim()) onSubmit(nickname.trim(), color);
+  }
+
   return (
     <div className="flex h-screen items-center justify-center bg-paper px-6">
       <div className="w-full max-w-sm rounded-2xl border border-ink/10 bg-white/60 p-6 text-center shadow-note">
@@ -361,11 +504,24 @@ function NicknamePrompt({
           placeholder="닉네임을 정해주세요"
           className="mb-4 w-full rounded-xl border border-ink/10 bg-white/70 px-4 py-2.5 text-center text-ink placeholder:text-ink/30 focus:outline-none focus:ring-2 focus:ring-clay/25"
           onKeyDown={(e) => {
-            if (e.key === "Enter" && nickname.trim()) onSubmit(nickname.trim());
+            if (e.key === "Enter") submit();
           }}
         />
+        <div className="mb-6 flex items-center justify-center gap-3">
+          <label className="relative h-9 w-9 shrink-0 cursor-pointer overflow-hidden rounded-full border border-ink/10 shadow-note">
+            <span className="absolute inset-0" style={{ backgroundColor: color }} />
+            <input
+              type="color"
+              value={color}
+              onChange={(e) => setColor(e.target.value)}
+              className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+              aria-label="하이라이트 색 선택"
+            />
+          </label>
+          <p className="text-xs text-ink/40">내 하이라이트 색</p>
+        </div>
         <button
-          onClick={() => nickname.trim() && onSubmit(nickname.trim())}
+          onClick={submit}
           disabled={!nickname.trim()}
           className="w-full rounded-xl bg-clay px-4 py-3 text-sm font-medium text-paper transition hover:bg-clay/90 disabled:opacity-40"
         >
