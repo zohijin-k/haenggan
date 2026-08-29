@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { Member, ReadingProgress } from "@/lib/types";
 import { NOTE_FONT_OPTIONS, noteFontStack, type NoteFont } from "@/lib/notePrefs";
@@ -45,7 +46,13 @@ export default function MemberRail({
   return (
     <aside className="flex h-full w-full flex-col gap-6 border-l border-ink/10 bg-white/30 p-5 backdrop-blur-sm sm:w-64">
       <div>
-        <p className="text-xs text-ink/40">지금 함께 읽는 작품</p>
+        <Link
+          href="/library"
+          className="text-[11px] text-ink/35 transition hover:text-ink/60"
+        >
+          ← 저장소
+        </Link>
+        <p className="mt-2 text-xs text-ink/40">지금 함께 읽는 작품</p>
         <h2 className="mt-1 text-sm font-medium leading-snug text-ink">{bookTitle}</h2>
       </div>
 

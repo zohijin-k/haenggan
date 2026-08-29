@@ -1,3 +1,4 @@
+import Link from "next/link";
 import CreateSessionForm from "@/components/CreateSessionForm";
 import JoinSessionForm from "@/components/JoinSessionForm";
 import { MEMBER_PALETTE } from "@/lib/palette";
@@ -51,6 +52,13 @@ export default function HomePage() {
           <JoinSessionForm />
         </section>
       </div>
+
+      <Link
+        href="/library"
+        className="mt-8 text-sm text-ink/45 underline-offset-4 transition hover:text-ink/70 hover:underline"
+      >
+        이전에 함께 읽던 행간 보기 →
+      </Link>
     </main>
   );
 }
