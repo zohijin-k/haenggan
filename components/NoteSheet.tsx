@@ -1,11 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import { noteFontStack, type NoteFont } from "@/lib/notePrefs";
 
 type CreateModeProps = {
   mode: "create";
   quote: string;
   myColor: string;
+  noteFont: NoteFont;
   onSave: (note: string) => void;
   onCancel: () => void;
 };
@@ -18,6 +20,7 @@ type ViewModeProps = {
   color: string;
   createdAt: string;
   isMine: boolean;
+  noteFont: NoteFont;
   onClose: () => void;
   onDelete?: () => void;
 };
@@ -38,7 +41,7 @@ export default function NoteSheet(props: Props) {
   );
 }
 
-function CreateBody({ quote, myColor, onSave, onCancel }: CreateModeProps) {
+function CreateBody({ quote, myColor, noteFont, onSave, onCancel }: CreateModeProps) {
   const [note, setNote] = useState("");
   return (
     <div className="space-y-3">
@@ -54,7 +57,8 @@ function CreateBody({ quote, myColor, onSave, onCancel }: CreateModeProps) {
         onChange={(e) => setNote(e.target.value)}
         placeholder="이 문장에 남기고 싶은 말이 있다면… (비워두면 밑줄만 남아요)"
         rows={3}
-        className="w-full resize-none rounded-xl border border-ink/10 bg-paper/60 px-3 py-2 font-hand text-lg text-ink placeholder:font-sans placeholder:text-sm placeholder:text-ink/30 focus:outline-none focus:ring-2 focus:ring-ink/15"
+        style={{ fontFamily: noteFontStack(noteFont) }}
+        className="w-full resize-none rounded-xl border border-ink/10 bg-paper/60 px-3 py-2 text-lg text-ink placeholder:font-sans placeholder:text-sm placeholder:text-ink/30 focus:outline-none focus:ring-2 focus:ring-ink/15"
       />
       <div className="flex justify-end gap-2">
         <button
@@ -75,7 +79,7 @@ function CreateBody({ quote, myColor, onSave, onCancel }: CreateModeProps) {
   );
 }
 
-function ViewBody({ quote, note, nickname, color, createdAt, isMine, onClose, onDelete }: ViewModeProps) {
+function ViewBody({ quote, note, nickname, color, createdAt, isMine, noteFont, onClose, onDelete }: ViewModeProps) {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
@@ -94,7 +98,7 @@ function ViewBody({ quote, note, nickname, color, createdAt, isMine, onClose, on
         “{quote}”
       </p>
       {note && (
-        <p className="font-hand text-xl leading-snug text-ink" style={{ color }}>
+        <p className="text-xl leading-snug text-ink" style={{ color, fontFamily: noteFontStack(noteFont) }}>
           {note}
         </p>
       )}

@@ -5,6 +5,9 @@ import type { Metadata } from "next";
 import "@fontsource/gaegu/300.css";
 import "@fontsource/gaegu/400.css";
 import "@fontsource/gaegu/700.css";
+// 메모(손글씨) 폰트 후보 — 사용자가 사이드바에서 고른다 (lib/notePrefs.ts).
+import "@fontsource/nanum-pen-script/400.css";
+import "@fontsource/gowun-dodum/400.css";
 // 본문/UI 폰트: Pretendard 가변 폰트 — 한글 전체 글립을 하나의 woff2 파일에
 // 담고 있어(45~920 weight) Noto Serif KR의 명조/붓글씨 인상 대신
 // 깔끔한 UI 서체를 제공한다.

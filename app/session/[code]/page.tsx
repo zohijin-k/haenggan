@@ -5,7 +5,7 @@ import { useParams } from "next/navigation";
 import { supabase, BOOKS_BUCKET } from "@/lib/supabase";
 import { getLocalIdentity, newDeviceKey, setLocalIdentity } from "@/lib/identity";
 import { MEMBER_PALETTE } from "@/lib/palette";
-import { getReaderFont, setReaderFont, type ReaderFont } from "@/lib/readerPrefs";
+import { getNoteFont, setNoteFont, type NoteFont } from "@/lib/notePrefs";
 import type { Highlight, Member, ReadingProgress, Session } from "@/lib/types";
 import EpubReader from "@/components/EpubReader";
 import PdfReader from "@/components/PdfReader";
@@ -41,16 +41,16 @@ export default function SessionPage() {
   const [pendingSelection, setPendingSelection] = useState<PendingSelection | null>(null);
   const [noteSheetOpen, setNoteSheetOpen] = useState(false);
   const [viewingHighlightId, setViewingHighlightId] = useState<string | null>(null);
-  const [font, setFont] = useState<ReaderFont>("gothic");
+  const [noteFont, setNoteFontState] = useState<NoteFont>("gaegu");
   const [showSelectHint, setShowSelectHint] = useState(false);
 
   const compareCfiRef = useRef<((a: string, b: string) => number) | null>(null);
   const myFurthestCfiRef = useRef<string | null>(null);
   const progressSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // 0) 이 기기의 개인 취향(읽기 폰트) + 선택 힌트 노출 여부 로드
+  // 0) 이 기기의 개인 취향(메모 폰트) + 선택 힌트 노출 여부 로드
   useEffect(() => {
-    setFont(getReaderFont());
+    setNoteFontState(getNoteFont());
     try {
       setShowSelectHint(!window.localStorage.getItem(SELECT_HINT_KEY));
     } catch {
@@ -210,9 +210,9 @@ export default function SessionPage() {
     }
   }, [showSelectHint]);
 
-  const handleFontChange = useCallback((next: ReaderFont) => {
-    setFont(next);
-    setReaderFont(next);
+  const handleNoteFontChange = useCallback((next: NoteFont) => {
+    setNoteFontState(next);
+    setNoteFont(next);
   }, []);
 
   const handleColorChange = useCallback(
@@ -384,6 +384,7 @@ export default function SessionPage() {
           <PdfReader
             pdfUrl={epubUrl}
             visibleHighlights={visibleHighlights}
+            myColor={myColor}
             startCfi={myFurthestCfiRef.current}
             onReady={({ compareCfi }) => {
               compareCfiRef.current = compareCfi;
@@ -396,8 +397,8 @@ export default function SessionPage() {
           <EpubReader
             epubUrl={epubUrl}
             visibleHighlights={visibleHighlights}
+            myColor={myColor}
             startCfi={myFurthestCfiRef.current}
-            font={font}
             onReady={({ compareCfi }) => {
               compareCfiRef.current = compareCfi;
             }}
@@ -417,9 +418,8 @@ export default function SessionPage() {
           myMemberId={myMemberId}
           myColor={myColor}
           onColorChange={handleColorChange}
-          font={font}
-          onFontChange={handleFontChange}
-          fontDisabled={isPdfBook}
+          noteFont={noteFont}
+          onNoteFontChange={handleNoteFontChange}
         />
       )}
 
@@ -436,6 +436,7 @@ export default function SessionPage() {
           mode="create"
           quote={pendingSelection.text}
           myColor={myColor}
+          noteFont={noteFont}
           onSave={saveHighlight}
           onCancel={() => {
             setPendingSelection(null);
@@ -451,6 +452,7 @@ export default function SessionPage() {
           note={viewingHighlight.note}
           nickname={viewingMember.nickname}
           color={viewingHighlight.color}
+          noteFont={noteFont}
           createdAt={viewingHighlight.created_at}
           isMine={viewingHighlight.member_id === myMemberId}
           onClose={() => setViewingHighlightId(null)}

@@ -24,8 +24,10 @@ body {
   border: none;
 }
 
+/* 드래그로 문장을 고르는 동안(=밑줄 긋기 직전) 보이는 선택 색.
+   --haenggan-select 를 각 리더가 "내 고유색"으로 채워준다. */
 ::selection {
-  background: rgba(24, 24, 27, 0.12);
+  background: var(--haenggan-select, rgba(24, 24, 27, 0.12));
 }
 
 /* pdf.js TextLayer가 캔버스 위에 겹치는, 실제로는 투명한 텍스트 레이어.
@@ -47,12 +49,21 @@ body {
   transform-origin: 0% 0%;
 }
 .pdf-text-layer ::selection {
-  background: rgba(92, 107, 79, 0.25);
+  background: var(--haenggan-select, rgba(92, 107, 79, 0.25));
+}
+
+/* 하이라이트는 span에 text-decoration을 주는 대신, 글자 아래에 얇은 막대를
+   따로 깔아서 그린다. 같은 줄을 여러 명이 겹쳐 그어도 각자의 밑줄이
+   "lane"만큼 아래로 쌓여 서로 가리지 않는다. */
+.pdf-underline {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  border-radius: 1px;
+  pointer-events: auto;
+  cursor: pointer;
 }
 .pdf-highlight-span {
-  text-decoration: underline;
-  text-decoration-thickness: 2px;
-  text-underline-offset: 1px;
   cursor: pointer;
-  pointer-events: auto;
 }

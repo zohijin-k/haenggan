@@ -1,7 +1,7 @@
 "use client";
 
 import type { Member, ReadingProgress } from "@/lib/types";
-import { FONT_OPTIONS, type ReaderFont } from "@/lib/readerPrefs";
+import { NOTE_FONT_OPTIONS, noteFontStack, type NoteFont } from "@/lib/notePrefs";
 
 type Props = {
   bookTitle: string;
@@ -11,9 +11,8 @@ type Props = {
   myMemberId: string;
   myColor: string;
   onColorChange: (color: string) => void;
-  font: ReaderFont;
-  onFontChange: (font: ReaderFont) => void;
-  fontDisabled?: boolean;
+  noteFont: NoteFont;
+  onNoteFontChange: (font: NoteFont) => void;
 };
 
 export default function MemberRail({
@@ -24,9 +23,8 @@ export default function MemberRail({
   myMemberId,
   myColor,
   onColorChange,
-  font,
-  onFontChange,
-  fontDisabled,
+  noteFont,
+  onNoteFontChange,
 }: Props) {
   return (
     <aside className="flex h-full w-full flex-col gap-6 border-l border-ink/10 bg-white/30 p-5 backdrop-blur-sm sm:w-64">
@@ -62,16 +60,16 @@ export default function MemberRail({
         </div>
 
         <div>
-          <p className="mb-1.5 text-xs text-ink/40">읽기 폰트</p>
+          <p className="mb-1.5 text-xs text-ink/40">메모 폰트</p>
           <div className="flex gap-1.5">
-            {FONT_OPTIONS.map((opt) => (
+            {NOTE_FONT_OPTIONS.map((opt) => (
               <button
                 key={opt.value}
                 type="button"
-                disabled={fontDisabled}
-                onClick={() => onFontChange(opt.value)}
-                className={`flex-1 rounded-lg border px-2 py-1.5 text-xs transition disabled:cursor-not-allowed disabled:opacity-30 ${
-                  font === opt.value
+                onClick={() => onNoteFontChange(opt.value)}
+                style={{ fontFamily: noteFontStack(opt.value) }}
+                className={`flex-1 rounded-lg border px-2 py-1.5 text-sm leading-none transition ${
+                  noteFont === opt.value
                     ? "border-ink/0 bg-ink text-paper"
                     : "border-ink/10 text-ink/60 hover:border-ink/25"
                 }`}
@@ -80,11 +78,9 @@ export default function MemberRail({
               </button>
             ))}
           </div>
-          {fontDisabled && (
-            <p className="mt-1.5 text-[11px] leading-relaxed text-ink/30">
-              PDF는 원본 폰트 그대로 보여줘서 바꿀 수 없어요
-            </p>
-          )}
+          <p className="mt-1.5 text-[11px] leading-relaxed text-ink/30">
+            내가 남기는 메모가 이 글씨체로 보여요
+          </p>
         </div>
       </div>
 

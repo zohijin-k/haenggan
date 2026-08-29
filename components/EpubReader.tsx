@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import type { Highlight } from "@/lib/types";
-import { fontStack, type ReaderFont } from "@/lib/readerPrefs";
+import { withAlpha } from "@/lib/palette";
 
 type SelectionRect = { x: number; y: number; width: number; height: number };
 
@@ -21,37 +21,35 @@ type ReaderApi = {
 type Props = {
   epubUrl: string;
   visibleHighlights: Highlight[];
+  myColor: string;
   startCfi?: string | null;
-  font?: ReaderFont;
   onReady?: (api: ReaderApi) => void;
   onSelection?: (info: SelectionInfo) => void;
   onLocationChange?: (cfi: string, percentage: number, chapterHref: string) => void;
   onHighlightClick?: (highlightId: string) => void;
 };
 
-// 책 자체 CSS가 폰트를 강하게 지정하는 경우가 많아 !important로 덮어씀.
-// (Kindle 등 리더가 "출판사 폰트"를 무시하고 사용자 폰트로 바꿔치는 것과 같은 방식)
-function fontCss(font: ReaderFont) {
-  return `body, body * { font-family: ${fontStack(font)} !important; }`;
-}
+// 책 원본 조판을 최대한 살리되, 폰트를 너무 튀지 않는 UI 서체로 통일한다.
+// (읽기 폰트 선택은 없앴고, 사용자가 고르는 건 자기 메모 서체다 — lib/notePrefs.ts)
+const READER_FONT = `"Pretendard Variable", "Pretendard", -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", sans-serif`;
 
-// epub.js가 mark 태그에 붙이는 밑줄/형광펜 스타일. iframe 내부 문서는
-// 우리 Tailwind 스타일시트가 닿지 않기 때문에 순수 CSS로 직접 주입한다.
+// iframe 내부 문서엔 우리 Tailwind 스타일시트가 닿지 않아 순수 CSS로 직접 주입한다.
 const READER_CSS = `
+  body, body * { font-family: ${READER_FONT} !important; }
   mark { background: transparent !important; }
-  .exch-underline {
-    text-decoration: underline;
-    text-decoration-thickness: 2px;
-    text-underline-offset: 3px;
-    cursor: pointer;
-  }
+  .exch-underline { cursor: pointer; }
 `;
+
+// 드래그로 문장을 고르는 동안 보이는 선택 색 = "내 고유색"
+function selectionCss(color: string) {
+  return `::selection { background: ${withAlpha(color, 0.3)} !important; }`;
+}
 
 export default function EpubReader({
   epubUrl,
   visibleHighlights,
+  myColor,
   startCfi,
-  font = "gothic",
   onReady,
   onSelection,
   onLocationChange,
@@ -64,12 +62,81 @@ export default function EpubReader({
   const onSelectionRef = useRef(onSelection);
   const onHighlightClickRef = useRef(onHighlightClick);
   const onLocationChangeRef = useRef(onLocationChange);
-  const fontRef = useRef<ReaderFont>(font);
+  const myColorRef = useRef(myColor);
 
   onSelectionRef.current = onSelection;
   onHighlightClickRef.current = onHighlightClick;
   onLocationChangeRef.current = onLocationChange;
-  fontRef.current = font;
+  myColorRef.current = myColor;
+
+  // 밑줄(marks-pane <line>)들을 다시 칠하고, 같은 줄에서 x축이 겹치는 것끼리는
+  // "lane"만큼 아래로 내려 겹쳐 보이게 한다. marks-pane이 리사이즈 때마다
+  // 자식 요소를 통째로 새로 그리기 때문에, MutationObserver로 매번 다시 입힌다.
+  const restyleScheduled = useRef(false);
+  const restyleUnderlines = useRef(() => {});
+  restyleUnderlines.current = () => {
+    const root = viewerRef.current;
+    if (!root) return;
+    const lines = Array.from(root.querySelectorAll("svg line")) as SVGLineElement[];
+    if (!lines.length) return;
+
+    // 같은 시각적 줄(y1이 4px 이내)끼리 묶는다.
+    const buckets = new Map<number, SVGLineElement[]>();
+    for (const ln of lines) {
+      const y = parseFloat(ln.getAttribute("y1") || "0");
+      const key = Math.round(y / 4);
+      const arr = buckets.get(key) ?? [];
+      arr.push(ln);
+      buckets.set(key, arr);
+    }
+
+    for (const group of buckets.values()) {
+      group.sort(
+        (a, b) => parseFloat(a.getAttribute("x1") || "0") - parseFloat(b.getAttribute("x1") || "0")
+      );
+      const laneEnd: number[] = []; // laneEnd[l] = 그 lane을 차지한 마지막 밑줄의 x2
+      for (const ln of group) {
+        const x1 = parseFloat(ln.getAttribute("x1") || "0");
+        const x2 = parseFloat(ln.getAttribute("x2") || "0");
+        let lane = 0;
+        while (lane < laneEnd.length && laneEnd[lane] > x1 + 0.5) lane++;
+        laneEnd[lane] = x2;
+
+        const g = ln.parentElement as unknown as SVGGElement | null;
+        const color = (g && (g as any).dataset?.color) || ln.getAttribute("stroke") || "#18181b";
+        ln.setAttribute("stroke", color);
+        ln.setAttribute("stroke-width", "2");
+        ln.setAttribute("stroke-opacity", "0.9");
+        ln.setAttribute("stroke-linecap", "round");
+        ln.setAttribute("transform", `translate(0, ${lane * 3})`);
+      }
+    }
+  };
+
+  useEffect(() => {
+    const root = viewerRef.current;
+    if (!root || typeof MutationObserver === "undefined") return;
+    let alive = true;
+    const observer = new MutationObserver(() => {
+      if (restyleScheduled.current) return;
+      restyleScheduled.current = true;
+      requestAnimationFrame(() => {
+        restyleScheduled.current = false;
+        if (!alive) return;
+        observer.disconnect();
+        try {
+          restyleUnderlines.current();
+        } finally {
+          observer.observe(root, { childList: true, subtree: true });
+        }
+      });
+    });
+    observer.observe(root, { childList: true, subtree: true });
+    return () => {
+      alive = false;
+      observer.disconnect();
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -92,7 +159,7 @@ export default function EpubReader({
       rendition.hooks.content.register((contents: any) => {
         try {
           contents.addStylesheetCss(READER_CSS, "haenggan-reader-base");
-          contents.addStylesheetCss(fontCss(fontRef.current), "haenggan-reader-font");
+          contents.addStylesheetCss(selectionCss(myColorRef.current), "haenggan-reader-select");
         } catch {
           // 구버전 epub.js 호환: 실패해도 기본 렌더링엔 지장 없음
         }
@@ -100,11 +167,9 @@ export default function EpubReader({
 
       await rendition.display(startCfi || undefined);
 
-      book.locations
-        .generate(1600)
-        .catch(() => {
-          /* 위치 인덱싱 실패해도 읽기 자체엔 문제 없음 */
-        });
+      book.locations.generate(1600).catch(() => {
+        /* 위치 인덱싱 실패해도 읽기 자체엔 문제 없음 */
+      });
 
       rendition.on("selected", (cfiRange: string, contents: any) => {
         const selection = contents.window.getSelection();
@@ -141,7 +206,10 @@ export default function EpubReader({
           percentage = 0;
         }
         if (cfi) onLocationChangeRef.current?.(cfi, percentage, href);
+        restyleUnderlines.current();
       });
+
+      rendition.on("rendered", () => restyleUnderlines.current());
 
       const compareCfi = (a: string, b: string) => {
         try {
@@ -173,17 +241,15 @@ export default function EpubReader({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [epubUrl]);
 
-  // 폰트를 바꾸면 이미 렌더된 페이지에도 즉시 반영한다(새로 넘기는 페이지는
-  // 위 hooks.content.register가 자연히 새 폰트로 그려줌).
+  // 내 색이 바뀌면 이미 렌더된 페이지의 선택 색도 즉시 갱신한다.
   useEffect(() => {
     const rendition = renditionRef.current;
     if (!rendition) return;
     try {
-      const contentsList =
-        typeof rendition.getContents === "function" ? rendition.getContents() : [];
-      contentsList.forEach((c: any) => {
+      const list = typeof rendition.getContents === "function" ? rendition.getContents() : [];
+      list.forEach((c: any) => {
         try {
-          c.addStylesheetCss(fontCss(font), "haenggan-reader-font");
+          c.addStylesheetCss(selectionCss(myColor), "haenggan-reader-select");
         } catch {
           // ignore
         }
@@ -191,7 +257,7 @@ export default function EpubReader({
     } catch {
       // ignore
     }
-  }, [font]);
+  }, [myColor]);
 
   // 새로 "발견"된(잠금 해제된) 하이라이트를 뷰에 얹는다.
   useEffect(() => {
@@ -203,16 +269,17 @@ export default function EpubReader({
       try {
         rendition.annotations.underline(
           h.cfi_range,
-          {},
+          { color: h.color },
           () => onHighlightClickRef.current?.(h.id),
           "exch-underline",
-          { stroke: h.color, "stroke-width": "2px" }
+          { "mix-blend-mode": "normal" }
         );
         addedHighlightIds.current.add(h.id);
       } catch {
         // 아직 스파인이 렌더되지 않은 구간일 수 있음 — 다음 relocate 때 자연히 재시도됨
       }
     }
+    restyleUnderlines.current();
   }, [visibleHighlights]);
 
   return <div ref={viewerRef} className="epub-container h-full w-full" />;
