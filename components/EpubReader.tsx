@@ -29,7 +29,7 @@ type Props = {
   onHighlightClick?: (highlightId: string) => void;
 };
 
-// 책 원본 조판을 최대한 살리되, 폰트를 너무 튀지 않는 UI 서체로 통일한다.
+// 작품 원본 조판을 최대한 살리되, 폰트를 너무 튀지 않는 UI 서체로 통일한다.
 // (읽기 폰트 선택은 없앴고, 사용자가 고르는 건 자기 메모 서체다 — lib/notePrefs.ts)
 const READER_FONT = `"Pretendard Variable", "Pretendard", -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", sans-serif`;
 

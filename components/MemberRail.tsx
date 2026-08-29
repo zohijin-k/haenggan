@@ -45,7 +45,7 @@ export default function MemberRail({
   return (
     <aside className="flex h-full w-full flex-col gap-6 border-l border-ink/10 bg-white/30 p-5 backdrop-blur-sm sm:w-64">
       <div>
-        <p className="text-xs text-ink/40">지금 함께 읽는 책</p>
+        <p className="text-xs text-ink/40">지금 함께 읽는 작품</p>
         <h2 className="mt-1 text-sm font-medium leading-snug text-ink">{bookTitle}</h2>
       </div>
 

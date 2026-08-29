@@ -232,16 +232,16 @@ export default function CreateSessionForm() {
             />
           ) : (
             <div className="flex h-16 w-11 items-center justify-center rounded-sm bg-moss/10 text-moss/60 text-xs">
-              책
+              작품
             </div>
           )}
           <div className="min-w-0">
             <p className="truncate text-sm text-ink">
-              {file ? title || file.name : "함께 읽을 책을 올려주세요"}
+              {file ? title || file.name : "함께 읽을 작품을 올려주세요"}
             </p>
             {author && <p className="truncate text-xs text-ink/50">{author}</p>}
             {step === "reading" && (
-              <p className="text-xs text-ink/45">책 정보를 읽는 중…</p>
+              <p className="text-xs text-ink/45">작품 정보를 읽는 중…</p>
             )}
           </div>
         </button>
@@ -260,11 +260,11 @@ export default function CreateSessionForm() {
       {file && (
         <div className="space-y-3 rounded-xl border border-ink/10 bg-white/40 p-4">
           <div>
-            <label className="block text-sm text-ink/60 mb-1.5">책 제목</label>
+            <label className="block text-sm text-ink/60 mb-1.5">제목</label>
             <input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="책 제목"
+              placeholder="제목"
               className="w-full rounded-xl border border-ink/10 bg-white/70 px-4 py-2.5 text-ink placeholder:text-ink/30 focus:outline-none focus:ring-2 focus:ring-moss/25"
             />
           </div>

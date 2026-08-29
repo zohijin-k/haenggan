@@ -30,7 +30,7 @@ type Props = CreateModeProps | ViewModeProps;
 export default function NoteSheet(props: Props) {
   return (
     <div className="fixed inset-x-0 bottom-0 z-30 flex justify-center px-4 pb-4 sm:px-0">
-      <div className="w-full max-w-lg animate-reveal rounded-2xl border border-ink/10 bg-white/95 p-5 shadow-note backdrop-blur">
+      <div className="w-full max-w-lg animate-inkSpread rounded-2xl border border-ink/10 bg-white/95 p-5 shadow-note backdrop-blur">
         {props.mode === "create" ? (
           <CreateBody {...props} />
         ) : (

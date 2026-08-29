@@ -17,7 +17,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "행간",
   description:
-    "행간 · space between lines — 친구들과 책 한 권을 함께 읽으며, 행간마다 서로의 흔적을 남기는 곳",
+    "행간 · space between lines — 친구들과 작품 한 편을 함께 읽으며, 행간마다 서로의 흔적을 남기는 곳",
 };
 
 export default function RootLayout({
