@@ -316,6 +316,7 @@ export default function SessionPage() {
           note={viewingHighlight.note}
           nickname={viewingMember.nickname}
           color={viewingHighlight.color}
+          createdAt={viewingHighlight.created_at}
           isMine={viewingHighlight.member_id === myMemberId}
           onClose={() => setViewingHighlightId(null)}
           onDelete={
@@ -352,13 +353,13 @@ function NicknamePrompt({
   return (
     <div className="flex h-screen items-center justify-center bg-paper px-6">
       <div className="w-full max-w-sm rounded-2xl border border-ink/10 bg-white/60 p-6 text-center shadow-note">
-        <p className="mb-1 font-hand text-lg text-clay">초대받았어요</p>
+        <p className="mb-1 text-[11px] uppercase tracking-[0.2em] text-clay/70">초대받았어요</p>
         <h1 className="mb-6 text-lg font-medium text-ink">{bookTitle}</h1>
         <input
           value={nickname}
           onChange={(e) => setNickname(e.target.value)}
           placeholder="닉네임을 정해주세요"
-          className="mb-4 w-full rounded-xl border border-ink/10 bg-white/70 px-4 py-2.5 text-center text-ink placeholder:text-ink/30 focus:outline-none focus:ring-2 focus:ring-clay/40"
+          className="mb-4 w-full rounded-xl border border-ink/10 bg-white/70 px-4 py-2.5 text-center text-ink placeholder:text-ink/30 focus:outline-none focus:ring-2 focus:ring-clay/25"
           onKeyDown={(e) => {
             if (e.key === "Enter" && nickname.trim()) onSubmit(nickname.trim());
           }}
@@ -366,7 +367,7 @@ function NicknamePrompt({
         <button
           onClick={() => nickname.trim() && onSubmit(nickname.trim())}
           disabled={!nickname.trim()}
-          className="w-full rounded-xl bg-ink px-4 py-3 text-sm font-medium text-paper disabled:opacity-40"
+          className="w-full rounded-xl bg-clay px-4 py-3 text-sm font-medium text-paper transition hover:bg-clay/90 disabled:opacity-40"
         >
           같이 읽기 시작
         </button>

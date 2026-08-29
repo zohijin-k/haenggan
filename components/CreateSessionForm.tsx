@@ -106,8 +106,8 @@ export default function CreateSessionForm() {
         <input
           value={nickname}
           onChange={(e) => setNickname(e.target.value)}
-          placeholder="예: 지니"
-          className="w-full rounded-xl border border-ink/10 bg-white/70 px-4 py-2.5 text-ink placeholder:text-ink/30 focus:outline-none focus:ring-2 focus:ring-clay/40"
+          placeholder="닉네임을 입력해주세요"
+          className="w-full rounded-xl border border-ink/10 bg-white/70 px-4 py-2.5 text-ink placeholder:text-ink/30 focus:outline-none focus:ring-2 focus:ring-moss/25"
           required
         />
       </div>
@@ -119,7 +119,7 @@ export default function CreateSessionForm() {
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
-          className="flex w-full items-center gap-4 rounded-xl border border-dashed border-ink/20 bg-white/50 px-4 py-4 text-left transition hover:border-clay/40 hover:bg-white/70"
+          className="flex w-full items-center gap-4 rounded-xl border border-dashed border-ink/20 bg-white/50 px-4 py-4 text-left transition hover:border-moss/40 hover:bg-white/70"
         >
           {coverUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -129,7 +129,7 @@ export default function CreateSessionForm() {
               className="h-16 w-11 rounded-sm object-cover shadow-note"
             />
           ) : (
-            <div className="flex h-16 w-11 items-center justify-center rounded-sm bg-sand text-ink/30 text-xs">
+            <div className="flex h-16 w-11 items-center justify-center rounded-sm bg-moss/10 text-moss/60 text-xs">
               EPUB
             </div>
           )}
@@ -139,7 +139,7 @@ export default function CreateSessionForm() {
             </p>
             {author && <p className="truncate text-xs text-ink/50">{author}</p>}
             {step === "reading" && (
-              <p className="text-xs text-clay">책 정보를 읽는 중…</p>
+              <p className="text-xs text-ink/45">책 정보를 읽는 중…</p>
             )}
           </div>
         </button>
@@ -155,12 +155,12 @@ export default function CreateSessionForm() {
         />
       </div>
 
-      {error && <p className="text-sm text-clay">{error}</p>}
+      {error && <p className="text-sm text-danger">{error}</p>}
 
       <button
         type="submit"
         disabled={!file || !nickname.trim() || step === "uploading" || step === "reading"}
-        className="w-full rounded-xl bg-ink px-4 py-3 text-sm font-medium text-paper transition hover:bg-ink/90 disabled:cursor-not-allowed disabled:opacity-40"
+        className="w-full rounded-xl bg-moss px-4 py-3 text-sm font-medium text-paper transition hover:bg-moss/90 disabled:cursor-not-allowed disabled:opacity-40"
       >
         {step === "uploading" ? "만드는 중…" : "행간 시작하기"}
       </button>

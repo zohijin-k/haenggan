@@ -80,7 +80,7 @@ export default function JoinSessionForm() {
           value={code}
           onChange={(e) => setCode(e.target.value)}
           placeholder="예: 3F7K9Q"
-          className="w-full rounded-xl border border-ink/10 bg-white/70 px-4 py-2.5 tracking-widest text-ink placeholder:text-ink/30 placeholder:tracking-normal focus:outline-none focus:ring-2 focus:ring-clay/40"
+          className="w-full rounded-xl border border-ink/10 bg-white/70 px-4 py-2.5 tracking-widest text-ink placeholder:text-ink/30 placeholder:tracking-normal focus:outline-none focus:ring-2 focus:ring-clay/25"
           required
         />
       </div>
@@ -89,18 +89,18 @@ export default function JoinSessionForm() {
         <input
           value={nickname}
           onChange={(e) => setNickname(e.target.value)}
-          placeholder="예: 혜민"
-          className="w-full rounded-xl border border-ink/10 bg-white/70 px-4 py-2.5 text-ink placeholder:text-ink/30 focus:outline-none focus:ring-2 focus:ring-clay/40"
+          placeholder="닉네임을 입력해주세요"
+          className="w-full rounded-xl border border-ink/10 bg-white/70 px-4 py-2.5 text-ink placeholder:text-ink/30 focus:outline-none focus:ring-2 focus:ring-clay/25"
           required
         />
       </div>
 
-      {error && <p className="text-sm text-clay">{error}</p>}
+      {error && <p className="text-sm text-danger">{error}</p>}
 
       <button
         type="submit"
         disabled={!code.trim() || !nickname.trim() || loading}
-        className="w-full rounded-xl border border-ink/15 bg-white/60 px-4 py-3 text-sm font-medium text-ink transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-40"
+        className="w-full rounded-xl border border-clay/30 bg-white/60 px-4 py-3 text-sm font-medium text-clay transition hover:bg-clay/5 disabled:cursor-not-allowed disabled:opacity-40"
       >
         {loading ? "들어가는 중…" : "코드로 참여하기"}
       </button>

@@ -1,4 +1,9 @@
 import type { Config } from "tailwindcss";
+import { MEMBER_PALETTE } from "./lib/palette";
+
+const memberColors = Object.fromEntries(
+  MEMBER_PALETTE.map((c) => [c.name, c.hex])
+) as Record<(typeof MEMBER_PALETTE)[number]["name"], string>;
 
 const config: Config = {
   content: [
@@ -8,15 +13,16 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        paper: "#faf7f2",
-        ink: "#2b2620",
-        moss: "#5c6b4f",
-        clay: "#b6674a",
-        sand: "#e7ddc9",
+        paper: "#FAFAFA",
+        ink: "#18181B",
+        danger: "#C0392B",
+        // lib/palette.ts의 참여자 색상을 그대로 Tailwind 유틸리티로도 노출
+        // (moss / clay / dusk / amber / teal / rose)
+        ...memberColors,
       },
       fontFamily: {
         hand: ["var(--font-hand)", "cursive"],
-        serifKr: ["var(--font-serif-kr)", "serif"],
+        sans: ["var(--font-pretendard)", "Pretendard Variable", "-apple-system", "sans-serif"],
       },
       boxShadow: {
         note: "0 6px 20px -8px rgba(43, 38, 32, 0.35)",

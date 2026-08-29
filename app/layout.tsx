@@ -5,9 +5,10 @@ import type { Metadata } from "next";
 import "@fontsource/gaegu/300.css";
 import "@fontsource/gaegu/400.css";
 import "@fontsource/gaegu/700.css";
-import "@fontsource/noto-serif-kr/400.css";
-import "@fontsource/noto-serif-kr/500.css";
-import "@fontsource/noto-serif-kr/700.css";
+// 본문/UI 폰트: Pretendard 가변 폰트 — 한글 전체 글립을 하나의 woff2 파일에
+// 담고 있어(45~920 weight) Noto Serif KR의 명조/붓글씨 인상 대신
+// 깔끔한 UI 서체를 제공한다.
+import "pretendard/dist/web/variable/pretendardvariable.css";
 import "./globals.css";
 
 export const metadata: Metadata = {

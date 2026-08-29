@@ -16,6 +16,7 @@ type ViewModeProps = {
   note: string | null;
   nickname: string;
   color: string;
+  createdAt: string;
   isMine: boolean;
   onClose: () => void;
   onDelete?: () => void;
@@ -53,7 +54,7 @@ function CreateBody({ quote, myColor, onSave, onCancel }: CreateModeProps) {
         onChange={(e) => setNote(e.target.value)}
         placeholder="이 문장에 남기고 싶은 말이 있다면… (비워두면 밑줄만 남아요)"
         rows={3}
-        className="w-full resize-none rounded-xl border border-ink/10 bg-paper/60 px-3 py-2 font-hand text-lg text-ink placeholder:font-serifKr placeholder:text-sm placeholder:text-ink/30 focus:outline-none focus:ring-2 focus:ring-clay/30"
+        className="w-full resize-none rounded-xl border border-ink/10 bg-paper/60 px-3 py-2 font-hand text-lg text-ink placeholder:font-sans placeholder:text-sm placeholder:text-ink/30 focus:outline-none focus:ring-2 focus:ring-ink/15"
       />
       <div className="flex justify-end gap-2">
         <button
@@ -74,7 +75,7 @@ function CreateBody({ quote, myColor, onSave, onCancel }: CreateModeProps) {
   );
 }
 
-function ViewBody({ quote, note, nickname, color, isMine, onClose, onDelete }: ViewModeProps) {
+function ViewBody({ quote, note, nickname, color, createdAt, isMine, onClose, onDelete }: ViewModeProps) {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
@@ -83,7 +84,7 @@ function ViewBody({ quote, note, nickname, color, isMine, onClose, onDelete }: V
           style={{ color }}
         >
           <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: color }} />
-          {nickname}의 흔적
+          {nickname} · {formatNoteDate(createdAt)}
         </span>
         <button onClick={onClose} className="text-ink/30 hover:text-ink/60">
           ✕
@@ -99,11 +100,17 @@ function ViewBody({ quote, note, nickname, color, isMine, onClose, onDelete }: V
       )}
       {isMine && onDelete && (
         <div className="flex justify-end">
-          <button onClick={onDelete} className="text-xs text-ink/30 hover:text-clay">
+          <button onClick={onDelete} className="text-xs text-ink/30 hover:text-danger">
             지우기
           </button>
         </div>
       )}
     </div>
   );
+}
+
+function formatNoteDate(iso: string) {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "";
+  return new Intl.DateTimeFormat("ko-KR", { month: "long", day: "numeric" }).format(date);
 }

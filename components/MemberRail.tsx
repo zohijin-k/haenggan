@@ -28,7 +28,7 @@ export default function MemberRail({
         <p className="mb-2 text-xs text-ink/40">초대 코드</p>
         <button
           onClick={() => navigator.clipboard?.writeText(code)}
-          className="w-full rounded-lg border border-dashed border-ink/20 px-3 py-2 text-left font-hand text-lg tracking-widest text-ink/70 transition hover:border-clay/40"
+          className="w-full rounded-lg border border-dashed border-ink/20 px-3 py-2 text-left text-sm font-semibold tracking-[0.15em] text-ink/70 transition hover:border-ink/30"
           title="복사하기"
         >
           {code}
