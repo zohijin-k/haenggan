@@ -50,14 +50,15 @@ function parseCfi(cfi: string) {
   };
 }
 
-// "발견" 여부는 페이지 단위로 비교한다 (같은 페이지 안에서는 항목 순서로 tie-break).
+// "발견" 여부는 순수하게 페이지 단위로 비교한다.
+// (같은 페이지 안에서 항목 순서로 tie-break를 하면, 내 진행 위치가 늘
+//  "그 페이지 0번 항목"이라 같은 페이지에 있는 남의 밑줄이 전부 "아직 안 읽은 것"으로
+//  잠겨버린다 — 그래서 페이지가 같으면 발견된 것으로 본다.)
 function comparePdfCfi(a: string, b: string) {
   const pa = parseCfi(a);
   const pb = parseCfi(b);
   if (!pa || !pb) return 0;
-  if (pa.page !== pb.page) return pa.page - pb.page;
-  if (pa.startItem !== pb.startItem) return pa.startItem - pb.startItem;
-  return pa.startOffset - pb.startOffset;
+  return pa.page - pb.page;
 }
 
 // 겹치는(같은 span을 공유하는) 하이라이트들을 서로 다른 "lane"에 배치한다.

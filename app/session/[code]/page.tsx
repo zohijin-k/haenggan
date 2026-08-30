@@ -43,6 +43,9 @@ export default function SessionPage() {
   const [viewingHighlightId, setViewingHighlightId] = useState<string | null>(null);
   const [noteFont, setNoteFontState] = useState<NoteFont>("gaegu");
   const [showSelectHint, setShowSelectHint] = useState(false);
+  // 리더가 compareCfi를 넘겨줄 때까지 남의 밑줄은 "발견 여부"를 판정할 수 없다.
+  // ref는 바뀌어도 리렌더를 안 하므로, 준비되면 이 state로 visibleHighlights를 재계산시킨다.
+  const [readerReady, setReaderReady] = useState(false);
 
   const compareCfiRef = useRef<((a: string, b: string) => number) | null>(null);
   const myFurthestCfiRef = useRef<string | null>(null);
@@ -193,7 +196,7 @@ export default function SessionPage() {
     });
     // myFurthestCfiRef는 위치가 바뀔 때 progressTick으로 재계산을 트리거
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [highlights, myMemberId, progress]);
+  }, [highlights, myMemberId, progress, readerReady]);
 
   const handleSelection = useCallback((info: PendingSelection) => {
     setPendingSelection(info);
@@ -394,6 +397,7 @@ export default function SessionPage() {
             startCfi={myFurthestCfiRef.current}
             onReady={({ compareCfi }) => {
               compareCfiRef.current = compareCfi;
+              setReaderReady(true);
             }}
             onSelection={handleSelection}
             onLocationChange={handleLocationChange}
@@ -407,6 +411,7 @@ export default function SessionPage() {
             startCfi={myFurthestCfiRef.current}
             onReady={({ compareCfi }) => {
               compareCfiRef.current = compareCfi;
+              setReaderReady(true);
             }}
             onSelection={handleSelection}
             onLocationChange={handleLocationChange}
