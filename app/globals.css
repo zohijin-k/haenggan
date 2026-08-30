@@ -54,16 +54,13 @@ body {
 
 /* 하이라이트는 span에 text-decoration을 주는 대신, 글자 아래에 얇은 막대를
    따로 깔아서 그린다. 같은 줄을 여러 명이 겹쳐 그어도 각자의 밑줄이
-   "lane"만큼 아래로 쌓여 서로 가리지 않는다. */
+   "lane"만큼 아래로 쌓여 서로 가리지 않는다.
+   left/width/top은 실제 선택된 글자 범위의 rect를 기준으로 JS에서 매번
+   인라인으로 계산해 넣는다 — 항목(줄) 전체가 아니라 고른 만큼만 밑줄이 그어지게. */
 .pdf-underline {
   position: absolute;
-  left: 0;
-  right: 0;
   height: 2px;
   border-radius: 1px;
   pointer-events: auto;
-  cursor: pointer;
-}
-.pdf-highlight-span {
   cursor: pointer;
 }

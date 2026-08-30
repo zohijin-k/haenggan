@@ -3,6 +3,10 @@
 import { useState } from "react";
 import { noteFontStack, type NoteFont } from "@/lib/notePrefs";
 
+// 남의 메모는 항상 이 기본 서체로 보여준다 — "메모 폰트" 설정은 내 손글씨에만
+// 적용되는 개인 취향이라, 내가 바꾼다고 상대방 메모의 서체까지 바뀌면 안 된다.
+const DEFAULT_NOTE_FONT: NoteFont = "gaegu";
+
 type CreateModeProps = {
   mode: "create";
   quote: string;
@@ -12,17 +16,22 @@ type CreateModeProps = {
   onCancel: () => void;
 };
 
-type ViewModeProps = {
-  mode: "view";
+export type ViewEntry = {
+  id: string;
   quote: string;
   note: string | null;
   nickname: string;
   color: string;
   createdAt: string;
   isMine: boolean;
+};
+
+type ViewModeProps = {
+  mode: "view";
+  entries: ViewEntry[];
   noteFont: NoteFont;
   onClose: () => void;
-  onDelete?: () => void;
+  onDelete?: (highlightId: string) => void;
 };
 
 type Props = CreateModeProps | ViewModeProps;
@@ -78,36 +87,55 @@ function CreateBody({ quote, myColor, noteFont, onSave, onCancel }: CreateModePr
   );
 }
 
-function ViewBody({ quote, note, nickname, color, createdAt, isMine, noteFont, onClose, onDelete }: ViewModeProps) {
+function ViewBody({ entries, noteFont, onClose, onDelete }: ViewModeProps) {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <span
-          className="inline-flex items-center gap-1.5 text-xs font-medium"
-          style={{ color }}
-        >
-          <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: color }} />
-          {nickname} · {formatNoteDate(createdAt)}
+        <span className="text-xs text-ink/40">
+          {entries.length > 1 ? `겹친 밑줄 ${entries.length}개` : "밑줄"}
         </span>
         <button onClick={onClose} className="text-ink/30 hover:text-ink/60">
           ✕
         </button>
       </div>
-      <p className="border-l-2 pl-3 text-sm leading-relaxed text-ink/70" style={{ borderColor: color }}>
-        “{quote}”
-      </p>
-      {note && (
-        <p className="text-xl leading-snug text-ink" style={{ color, fontFamily: noteFontStack(noteFont) }}>
-          {note}
-        </p>
-      )}
-      {isMine && onDelete && (
-        <div className="flex justify-end">
-          <button onClick={onDelete} className="text-xs text-ink/30 hover:text-danger">
-            지우기
-          </button>
-        </div>
-      )}
+      <div className="max-h-[60vh] space-y-4 overflow-y-auto">
+        {entries.map((entry, i) => (
+          <div
+            key={entry.id}
+            className={i > 0 ? "space-y-3 border-t border-ink/10 pt-4" : "space-y-3"}
+          >
+            <div className="flex items-center justify-between">
+              <span className="inline-flex items-center gap-1.5 text-xs font-medium" style={{ color: entry.color }}>
+                <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: entry.color }} />
+                {entry.nickname} · {formatNoteDate(entry.createdAt)}
+              </span>
+            </div>
+            <p className="border-l-2 pl-3 text-sm leading-relaxed text-ink/70" style={{ borderColor: entry.color }}>
+              “{entry.quote}”
+            </p>
+            {entry.note && (
+              <p
+                className="text-xl leading-snug text-ink"
+                style={{
+                  color: entry.color,
+                  // 메모 폰트는 "내" 취향이라 내 메모에만 적용하고, 남의 메모는
+                  // 고정된 기본 서체로 보여준다.
+                  fontFamily: noteFontStack(entry.isMine ? noteFont : DEFAULT_NOTE_FONT),
+                }}
+              >
+                {entry.note}
+              </p>
+            )}
+            {entry.isMine && onDelete && (
+              <div className="flex justify-end">
+                <button onClick={() => onDelete(entry.id)} className="text-xs text-ink/30 hover:text-danger">
+                  지우기
+                </button>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

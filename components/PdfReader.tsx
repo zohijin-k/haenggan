@@ -27,7 +27,9 @@ type Props = {
   onReady?: (api: ReaderApi) => void;
   onSelection?: (info: SelectionInfo) => void;
   onLocationChange?: (cfi: string, percentage: number, chapterHref: string) => void;
-  onHighlightClick?: (highlightId: string) => void;
+  // 겹치는 밑줄을 한꺼번에 클릭했을 수도 있어서, 클릭한 위치와 겹치는 모든
+  // 하이라이트 id를 함께 넘긴다 (겹치지 않으면 배열 길이는 1).
+  onHighlightClick?: (highlightIds: string[]) => void;
 };
 
 // PDF는 epub.js 같은 CFI 개념이 없어서, 자체 위치 표기법을 하나 만들어 쓴다:
@@ -78,6 +80,86 @@ function assignLanes(ranges: { startItem: number; endItem: number }[]): number[]
   return lanes;
 }
 
+// 항목(item) 인덱스 구간이 서로 이어져 겹치는 하이라이트들을 하나의 그룹으로 묶는다.
+// (transitively 겹치면 같은 그룹 — A-B가 겹치고 B-C가 겹치면 A/B/C 전부 한 그룹)
+// 클릭 시 이 그룹 전체의 id를 넘겨서, 겹쳐 있는 메모를 한 번에 보여줄 수 있게 한다.
+function groupOverlapping(items: { id: string; startItem: number; endItem: number }[]): Record<string, string[]> {
+  const sorted = [...items].sort((a, b) => a.startItem - b.startItem);
+  const groups: string[][] = [];
+  let current: typeof sorted = [];
+  let currentEnd = -Infinity;
+  for (const it of sorted) {
+    if (current.length && it.startItem <= currentEnd) {
+      current.push(it);
+      currentEnd = Math.max(currentEnd, it.endItem);
+    } else {
+      if (current.length) groups.push(current.map((c) => c.id));
+      current = [it];
+      currentEnd = it.endItem;
+    }
+  }
+  if (current.length) groups.push(current.map((c) => c.id));
+
+  const map: Record<string, string[]> = {};
+  for (const g of groups) {
+    for (const id of g) map[id] = g;
+  }
+  return map;
+}
+
+// span(텍스트 레이어의 한 항목) 안에서 실제 텍스트가 들어있는 Text 노드를 찾는다.
+// 보통은 span의 첫 자식이 바로 텍스트지만, pdf.js 버전에 따라 한 단계 더
+// 감쌀 수 있어서 방어적으로 한 단계 더 훑는다.
+function findTextNode(el: Node): Text | null {
+  for (const node of Array.from(el.childNodes)) {
+    if (node.nodeType === Node.TEXT_NODE) return node as Text;
+  }
+  for (const node of Array.from(el.childNodes)) {
+    if (node.nodeType === Node.ELEMENT_NODE) {
+      const found = findTextNode(node);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
+// 항목 하나 안에서 [start, end) 문자 오프셋에 해당하는 실제 화면 좌표(rect)를 구한다.
+// 예전엔 항목(줄 전체일 수도 있는) span 하나를 통째로 밑줄 쳐서, "From Zero to
+// Detail"만 선택해도 그 줄 전체가 밑줄로 보이는 문제가 있었다 — Range로 정확한
+// 글자 범위의 rect를 구해 그 너비만큼만 밑줄을 그리도록 고쳤다.
+function getRectsForItem(div: HTMLElement, start: number, end: number): DOMRect[] {
+  const textNode = findTextNode(div);
+  if (!textNode) return [div.getBoundingClientRect()];
+  const len = textNode.textContent?.length ?? 0;
+  const s = Math.max(0, Math.min(start, len));
+  const e = Math.max(s, Math.min(end, len));
+  if (s === e) return [div.getBoundingClientRect()];
+  try {
+    const range = document.createRange();
+    range.setStart(textNode, s);
+    range.setEnd(textNode, e);
+    const rects = Array.from(range.getClientRects()).filter((r) => r.width > 0 || r.height > 0);
+    return rects.length ? rects : [div.getBoundingClientRect()];
+  } catch {
+    return [div.getBoundingClientRect()];
+  }
+}
+
+function getRectsForHighlight(
+  divs: HTMLElement[],
+  parsed: NonNullable<ReturnType<typeof parseCfi>>
+): DOMRect[] {
+  const rects: DOMRect[] = [];
+  for (let idx = parsed.startItem; idx <= parsed.endItem && idx < divs.length; idx++) {
+    const div = divs[idx];
+    if (!div) continue;
+    const start = idx === parsed.startItem ? parsed.startOffset : 0;
+    const end = idx === parsed.endItem ? parsed.endOffset : div.textContent?.length ?? 0;
+    rects.push(...getRectsForItem(div, start, end));
+  }
+  return rects;
+}
+
 export default function PdfReader({
   pdfUrl,
   visibleHighlights,
@@ -117,12 +199,9 @@ export default function PdfReader({
     const layer = textLayerRef.current;
     if (!divs.length || !layer) return;
 
-    // 이전에 깔아둔 밑줄 막대 / span 표시를 걷어낸다.
+    // 이전에 깔아둔 밑줄 막대를 걷어낸다. (텍스트 레이어 span 자체는 건드리지 않음 —
+    // 밑줄은 이제 span의 자식이 아니라 레이어에 직접 절대좌표로 얹기 때문.)
     layer.querySelectorAll(".pdf-underline").forEach((el) => el.remove());
-    divs.forEach((d) => {
-      d.classList.remove("pdf-highlight-span");
-      d.onclick = null;
-    });
 
     const onPage = visibleHighlightsRef.current
       .map((h) => ({ h, parsed: parseCfi(h.cfi_range) }))
@@ -132,25 +211,29 @@ export default function PdfReader({
     if (!onPage.length) return;
 
     const lanes = assignLanes(onPage.map((x) => x.parsed));
+    const groupMap = groupOverlapping(
+      onPage.map(({ h, parsed }) => ({ id: h.id, startItem: parsed.startItem, endItem: parsed.endItem }))
+    );
+    const layerRect = layer.getBoundingClientRect();
 
     onPage.forEach(({ h, parsed }, i) => {
       const lane = lanes[i];
-      for (let idx = parsed.startItem; idx <= parsed.endItem && idx < divs.length; idx++) {
-        const span = divs[idx];
-        if (!span) continue;
-        span.classList.add("pdf-highlight-span");
-        span.onclick = () => onHighlightClickRef.current?.(h.id);
+      const groupIds = groupMap[h.id] ?? [h.id];
+      const rects = getRectsForHighlight(divs, parsed);
 
+      rects.forEach((rect) => {
         const bar = document.createElement("div");
         bar.className = "pdf-underline";
+        bar.style.left = `${rect.left - layerRect.left}px`;
+        bar.style.width = `${rect.width}px`;
+        bar.style.top = `${rect.top - layerRect.top + rect.height - 2 - lane * 3}px`;
         bar.style.background = h.color;
-        bar.style.bottom = `${-2 - lane * 3}px`;
         bar.onclick = (e) => {
           e.stopPropagation();
-          onHighlightClickRef.current?.(h.id);
+          onHighlightClickRef.current?.(groupIds);
         };
-        span.appendChild(bar);
-      }
+        layer.appendChild(bar);
+      });
     });
   }
 

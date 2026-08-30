@@ -26,7 +26,9 @@ type Props = {
   onReady?: (api: ReaderApi) => void;
   onSelection?: (info: SelectionInfo) => void;
   onLocationChange?: (cfi: string, percentage: number, chapterHref: string) => void;
-  onHighlightClick?: (highlightId: string) => void;
+  // 겹치는 밑줄을 한꺼번에 클릭했을 수도 있어서, 클릭한 위치와 겹치는 모든
+  // 하이라이트 id를 함께 넘긴다 (겹치지 않으면 배열 길이는 1).
+  onHighlightClick?: (highlightIds: string[]) => void;
 };
 
 // 작품 원본 조판을 최대한 살리되, 폰트를 너무 튀지 않는 UI 서체로 통일한다.
@@ -59,6 +61,9 @@ export default function EpubReader({
   const renditionRef = useRef<any>(null);
   const bookRef = useRef<any>(null);
   const addedHighlightIds = useRef<Set<string>>(new Set());
+  // 같은 줄에서 서로 겹치는(x축이 이어지는) 밑줄들의 id 그룹 — restyleUnderlines가
+  // 다시 계산할 때마다 최신 상태로 갱신되고, 클릭 콜백은 이걸 그때그때 읽는다.
+  const overlapGroupsRef = useRef<Record<string, string[]>>({});
   const onSelectionRef = useRef(onSelection);
   const onHighlightClickRef = useRef(onHighlightClick);
   const onLocationChangeRef = useRef(onLocationChange);
@@ -90,11 +95,17 @@ export default function EpubReader({
       buckets.set(key, arr);
     }
 
+    // 클릭 시 "겹친 메모를 함께 보여주기" 위해, x축이 이어지는(겹치는) 밑줄들의
+    // highlight id를 하나의 그룹으로 묶어둔다.
+    const groupMap: Record<string, string[]> = {};
+
     for (const group of buckets.values()) {
       group.sort(
         (a, b) => parseFloat(a.getAttribute("x1") || "0") - parseFloat(b.getAttribute("x1") || "0")
       );
       const laneEnd: number[] = []; // laneEnd[l] = 그 lane을 차지한 마지막 밑줄의 x2
+      let clusterIds: string[] = [];
+      let clusterEnd = -Infinity;
       for (const ln of group) {
         const x1 = parseFloat(ln.getAttribute("x1") || "0");
         const x2 = parseFloat(ln.getAttribute("x2") || "0");
@@ -104,13 +115,27 @@ export default function EpubReader({
 
         const g = ln.parentElement as unknown as SVGGElement | null;
         const color = (g && (g as any).dataset?.color) || ln.getAttribute("stroke") || "#18181b";
+        const highlightId = (g && (g as any).dataset?.highlightId) as string | undefined;
         ln.setAttribute("stroke", color);
         ln.setAttribute("stroke-width", "2");
         ln.setAttribute("stroke-opacity", "0.9");
         ln.setAttribute("stroke-linecap", "round");
         ln.setAttribute("transform", `translate(0, ${lane * 3})`);
+
+        if (highlightId) {
+          if (clusterIds.length && x1 <= clusterEnd + 0.5) {
+            clusterIds.push(highlightId);
+          } else {
+            for (const id of clusterIds) groupMap[id] = clusterIds;
+            clusterIds = [highlightId];
+          }
+          clusterEnd = Math.max(clusterEnd, x2);
+        }
       }
+      for (const id of clusterIds) groupMap[id] = clusterIds;
     }
+
+    overlapGroupsRef.current = groupMap;
   };
 
   useEffect(() => {
@@ -269,8 +294,8 @@ export default function EpubReader({
       try {
         rendition.annotations.underline(
           h.cfi_range,
-          { color: h.color },
-          () => onHighlightClickRef.current?.(h.id),
+          { color: h.color, highlightId: h.id },
+          () => onHighlightClickRef.current?.(overlapGroupsRef.current[h.id] ?? [h.id]),
           "exch-underline",
           { "mix-blend-mode": "normal" }
         );

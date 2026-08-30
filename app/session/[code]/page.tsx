@@ -40,7 +40,7 @@ export default function SessionPage() {
 
   const [pendingSelection, setPendingSelection] = useState<PendingSelection | null>(null);
   const [noteSheetOpen, setNoteSheetOpen] = useState(false);
-  const [viewingHighlightId, setViewingHighlightId] = useState<string | null>(null);
+  const [viewingHighlightIds, setViewingHighlightIds] = useState<string[] | null>(null);
   const [noteFont, setNoteFontState] = useState<NoteFont>("gaegu");
   const [showSelectHint, setShowSelectHint] = useState(false);
   // 리더가 compareCfi를 넘겨줄 때까지 남의 밑줄은 "발견 여부"를 판정할 수 없다.
@@ -336,8 +336,23 @@ export default function SessionPage() {
     setNeedsNickname(false);
   }
 
-  const viewingHighlight = highlights.find((h) => h.id === viewingHighlightId) ?? null;
-  const viewingMember = viewingHighlight ? membersById[viewingHighlight.member_id] : null;
+  // 겹치는 밑줄을 한꺼번에 클릭하면 여러 개일 수 있어서, 클릭된 하이라이트들을
+  // 전부 NoteSheet에 넘겨 한 시트 안에서 같이 보여준다.
+  const viewingEntries = useMemo(() => {
+    if (!viewingHighlightIds) return [];
+    return viewingHighlightIds
+      .map((id) => highlights.find((h) => h.id === id))
+      .filter((h): h is Highlight => !!h)
+      .map((h) => ({
+        id: h.id,
+        quote: h.selected_text,
+        note: h.note,
+        nickname: membersById[h.member_id]?.nickname ?? "",
+        color: h.color,
+        createdAt: h.created_at,
+        isMine: h.member_id === myMemberId,
+      }));
+  }, [viewingHighlightIds, highlights, membersById, myMemberId]);
   const isPdfBook = (session?.epub_path ?? "").toLowerCase().endsWith(".pdf");
 
   if (loading) {
@@ -401,7 +416,7 @@ export default function SessionPage() {
             }}
             onSelection={handleSelection}
             onLocationChange={handleLocationChange}
-            onHighlightClick={(id) => setViewingHighlightId(id)}
+            onHighlightClick={(ids) => setViewingHighlightIds(ids)}
           />
         ) : (
           <EpubReader
@@ -415,7 +430,7 @@ export default function SessionPage() {
             }}
             onSelection={handleSelection}
             onLocationChange={handleLocationChange}
-            onHighlightClick={(id) => setViewingHighlightId(id)}
+            onHighlightClick={(ids) => setViewingHighlightIds(ids)}
           />
         )}
       </div>
@@ -456,26 +471,21 @@ export default function SessionPage() {
         />
       )}
 
-      {viewingHighlight && viewingMember && (
+      {viewingEntries.length > 0 && (
         <NoteSheet
           mode="view"
-          quote={viewingHighlight.selected_text}
-          note={viewingHighlight.note}
-          nickname={viewingMember.nickname}
-          color={viewingHighlight.color}
+          entries={viewingEntries}
           noteFont={noteFont}
-          createdAt={viewingHighlight.created_at}
-          isMine={viewingHighlight.member_id === myMemberId}
-          onClose={() => setViewingHighlightId(null)}
-          onDelete={
-            viewingHighlight.member_id === myMemberId
-              ? async () => {
-                  await supabase.from("highlights").delete().eq("id", viewingHighlight.id);
-                  setHighlights((prev) => prev.filter((h) => h.id !== viewingHighlight.id));
-                  setViewingHighlightId(null);
-                }
-              : undefined
-          }
+          onClose={() => setViewingHighlightIds(null)}
+          onDelete={async (id) => {
+            await supabase.from("highlights").delete().eq("id", id);
+            setHighlights((prev) => prev.filter((h) => h.id !== id));
+            setViewingHighlightIds((prev) => {
+              if (!prev) return prev;
+              const next = prev.filter((x) => x !== id);
+              return next.length ? next : null;
+            });
+          }}
         />
       )}
     </div>
